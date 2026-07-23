@@ -1,124 +1,219 @@
-import React, { useEffect, useState } from 'react';
-import { RoomState } from '../types';
-import { QUESTIONS } from '../data/questions';
-import { syncEngine } from '../lib/syncEngine';
+import React, { useEffect, useRef, useState } from 'react';
+import { ViewMode } from '../types';
 import { soundEffects } from '../lib/audio';
 import confetti from 'canvas-confetti';
 import { QRCodeSVG } from 'qrcode.react';
-import { User } from 'firebase/auth';
-import { AuthModal } from './AuthModal';
-import { Play, Eye, Trophy, ArrowRight, RotateCcw, Clock, Users, CheckCircle2, Sparkles, AlertCircle, BarChart3, Globe, Copy, Smartphone, ShieldCheck, LogIn } from 'lucide-react';
-import byteeitLogo from '../assets/images/byteeit_logo_1784809227570.jpg';
+import { type User, getDisplayName } from '../lib/supabase';
+import {
+  LiveRoom,
+  subscribeToRoom,
+  findRoomIdByCode,
+  startQuiz,
+  revealAnswer,
+  nextQuestion,
+  showLeaderboard,
+  resetRoom,
+  loadActiveHostRoomCode,
+  clearActiveHostRoomCode
+} from '../lib/rooms';
+import { Play, Eye, Trophy, ArrowRight, RotateCcw, Users, CheckCircle2, Sparkles, BarChart3, Copy, Smartphone, PlusCircle, LogIn, ShieldCheck } from 'lucide-react';
 
 interface HostViewProps {
-  roomState: RoomState;
-  currentUser?: User | null;
+  currentUser: User | null;
+  setMode: (mode: ViewMode) => void;
+  onActiveRoomChange: (info: { roomCode: string; playerCount: number } | null) => void;
 }
 
-export const HostView: React.FC<HostViewProps> = ({ roomState, currentUser }) => {
+export const HostView: React.FC<HostViewProps> = ({ currentUser, setMode, onActiveRoomChange }) => {
+  const [room, setRoom] = useState<LiveRoom | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [copiedLink, setCopiedLink] = useState(false);
-  const [showAuthModal, setShowAuthModal] = useState(false);
-  const filteredQuestions = syncEngine.getFilteredQuestions();
-  const currentQ = filteredQuestions[roomState.currentQuestionIndex] || QUESTIONS[0];
+  const [timerRemaining, setTimerRemaining] = useState(0);
+  const revealedForQuestion = useRef<number | null>(null);
 
-  // Action Guard: requires creator login to control live host room
-  const requireAdminAction = (action: () => void) => {
+  // Resolve which room (if any) this authenticated host is currently running.
+  useEffect(() => {
     if (!currentUser) {
-      soundEffects.playClick();
-      setShowAuthModal(true);
+      setLoading(false);
+      setRoom(null);
       return;
     }
-    action();
+
+    let unsubscribe: (() => void) | null = null;
+    let cancelled = false;
+
+    const resume = async () => {
+      setLoading(true);
+      const storedCode = loadActiveHostRoomCode();
+      if (!storedCode) {
+        if (!cancelled) {
+          setLoading(false);
+        }
+        return;
+      }
+      try {
+        const roomId = await findRoomIdByCode(storedCode);
+        if (!roomId) {
+          clearActiveHostRoomCode();
+          if (!cancelled) setLoading(false);
+          return;
+        }
+        unsubscribe = subscribeToRoom(
+          roomId,
+          (liveRoom) => {
+            if (cancelled) return;
+            if (liveRoom && liveRoom.hostId !== currentUser.id) {
+              // Stale code pointing at someone else's room -- forget it.
+              clearActiveHostRoomCode();
+              setRoom(null);
+              setLoading(false);
+              return;
+            }
+            setRoom(liveRoom);
+            setLoading(false);
+          },
+          (err) => {
+            if (!cancelled) {
+              setLoadError(err.message);
+              setLoading(false);
+            }
+          }
+        );
+      } catch (err: any) {
+        if (!cancelled) {
+          setLoadError(err.message || 'Failed to load room');
+          setLoading(false);
+        }
+      }
+    };
+
+    resume();
+
+    return () => {
+      cancelled = true;
+      if (unsubscribe) unsubscribe();
+    };
+  }, [currentUser?.id]);
+
+  // Report the active room up to the app shell (for the header PIN badge).
+  useEffect(() => {
+    if (room) {
+      onActiveRoomChange({ roomCode: room.roomCode, playerCount: room.players.length });
+    } else {
+      onActiveRoomChange(null);
+    }
+  }, [room, onActiveRoomChange]);
+
+  const currentQ = room?.questions[room.currentQuestionIndex];
+
+  // Countdown timer, derived from question_started_at (no per-second DB writes).
+  useEffect(() => {
+    if (!room || room.status !== 'question' || !room.questionStartedAt) {
+      setTimerRemaining(0);
+      return;
+    }
+    const startedAt = new Date(room.questionStartedAt).getTime();
+    const limit = room.timeLimit;
+
+    const tick = () => {
+      const elapsed = (Date.now() - startedAt) / 1000;
+      const remaining = Math.max(0, Math.ceil(limit - elapsed));
+      setTimerRemaining(remaining);
+
+      if (remaining <= 5 && remaining > 0) soundEffects.playTick(true);
+
+      if (remaining === 0 && revealedForQuestion.current !== room.currentQuestionIndex) {
+        revealedForQuestion.current = room.currentQuestionIndex;
+        soundEffects.playCorrect();
+        revealAnswer(room.id).catch(() => {});
+      }
+    };
+
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, [room?.id, room?.status, room?.questionStartedAt, room?.timeLimit, room?.currentQuestionIndex]);
+
+  useEffect(() => {
+    if (room?.status === 'finished' || room?.status === 'leaderboard') {
+      soundEffects.playFanfare();
+      confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 } });
+    }
+  }, [room?.status]);
+
+  const runAction = (action: () => Promise<void>) => {
+    soundEffects.playClick();
+    action().catch((err: any) => alert(err.message || 'Action failed'));
   };
 
-  // Calculate live answers distribution for current question
-  const currentQAnswers = roomState.questionAnswers[currentQ?.id] || {};
-  const totalSubmissions = Object.keys(currentQAnswers).length;
-
-  const optionCounts = [0, 0, 0, 0];
-  Object.values(currentQAnswers).forEach((ans: any) => {
-    if (ans && typeof ans.optionIndex === 'number' && ans.optionIndex >= 0 && ans.optionIndex <= 3) {
-      optionCounts[ans.optionIndex]++;
-    }
-  });
-
-  // Timer effect on host
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (roomState.status === 'question' && roomState.timerRemaining > 0) {
-      interval = setInterval(() => {
-        const nextTime = roomState.timerRemaining - 1;
-        syncEngine.setTimer(nextTime);
-
-        if (nextTime <= 5 && nextTime > 0) {
-          soundEffects.playTick(true);
-        } else if (nextTime > 5) {
-          soundEffects.playTick(false);
-        }
-
-        if (nextTime === 0) {
-          soundEffects.playCorrect();
-          syncEngine.revealAnswer();
-        }
-      }, 1000);
-    }
-    return () => clearInterval(interval);
-  }, [roomState.status, roomState.timerRemaining]);
-
-  // Confetti on finished or leaderboard
-  useEffect(() => {
-    if (roomState.status === 'finished' || roomState.status === 'leaderboard') {
-      soundEffects.playFanfare();
-      confetti({
-        particleCount: 80,
-        spread: 70,
-        origin: { y: 0.6 }
-      });
-    }
-  }, [roomState.status]);
-
   const shapes = [
-    { name: 'A', bg: 'bg-red-500', hover: 'hover:bg-red-600', text: 'text-red-400', border: 'border-red-500/40', label: '▲ Option A' },
-    { name: 'B', bg: 'bg-blue-500', hover: 'hover:bg-blue-600', text: 'text-blue-400', border: 'border-blue-500/40', label: '◆ Option B' },
-    { name: 'C', bg: 'bg-amber-500', hover: 'hover:bg-amber-600', text: 'text-amber-400', border: 'border-amber-500/40', label: '● Option C' },
-    { name: 'D', bg: 'bg-emerald-500', hover: 'hover:bg-emerald-600', text: 'text-emerald-400', border: 'border-emerald-500/40', label: '■ Option D' }
+    { name: 'A', bg: 'bg-red-500', text: 'text-red-400' },
+    { name: 'B', bg: 'bg-blue-500', text: 'text-blue-400' },
+    { name: 'C', bg: 'bg-amber-500', text: 'text-amber-400' },
+    { name: 'D', bg: 'bg-emerald-500', text: 'text-emerald-400' }
   ];
 
+  if (!currentUser) {
+    return (
+      <div className="max-w-2xl mx-auto px-4 py-16 text-center space-y-4">
+        <div className="inline-flex p-3 bg-sky-500/10 border border-sky-500/30 rounded-2xl text-sky-400">
+          <ShieldCheck className="w-8 h-8" />
+        </div>
+        <h2 className="text-2xl font-extrabold text-white">Sign In to Host a Live Room</h2>
+        <p className="text-slate-400 text-sm">
+          Use the "Creator Admin Sign In" button in the top navigation to sign in, then head to "Create Quiz" to build and launch a live session.
+        </p>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return <div className="max-w-2xl mx-auto px-4 py-16 text-center text-slate-400 text-sm">Loading your room…</div>;
+  }
+
+  if (loadError) {
+    return <div className="max-w-2xl mx-auto px-4 py-16 text-center text-red-400 text-sm">{loadError}</div>;
+  }
+
+  if (!room || !currentQ) {
+    return (
+      <div className="max-w-2xl mx-auto px-4 py-16 text-center space-y-5">
+        <div className="inline-flex p-3 bg-blue-500/10 border border-blue-500/30 rounded-2xl text-blue-400">
+          <PlusCircle className="w-8 h-8" />
+        </div>
+        <h2 className="text-2xl font-extrabold text-white">No Live Room Yet</h2>
+        <p className="text-slate-400 text-sm">
+          Head to "Create Quiz" to build or pick a quiz, then click "Launch & Host Live Room" to start a session here.
+        </p>
+        <button
+          onClick={() => {
+            soundEffects.playClick();
+            setMode('builder');
+          }}
+          className="px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-extrabold rounded-2xl shadow-xl shadow-emerald-600/25 inline-flex items-center gap-2 text-sm transition-all"
+        >
+          <LogIn className="w-4 h-4" />
+          <span>Go to Create Quiz</span>
+        </button>
+      </div>
+    );
+  }
+
+  // Calculate live answers distribution for current question
+  const currentQAnswers = room.questionAnswers[currentQ.id] || {};
+  const totalSubmissions = Object.keys(currentQAnswers).length;
+  const optionCounts = [0, 0, 0, 0];
+  Object.values(currentQAnswers).forEach((ans: LiveRoom['questionAnswers'][number][string]) => {
+    if (ans.optionIndex >= 0 && ans.optionIndex <= 3) optionCounts[ans.optionIndex]++;
+  });
+
   // Render Lobby
-  if (roomState.status === 'lobby') {
+  if (room.status === 'lobby') {
+    const joinUrl = `${window.location.origin}/?pin=${room.roomCode}`;
     return (
       <div className="max-w-5xl mx-auto px-4 py-8 space-y-6">
-        <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
-
-        {/* Creator Admin Banner if not logged in */}
-        {!currentUser && (
-          <div className="bg-gradient-to-r from-sky-950/80 via-blue-950/80 to-slate-900 border border-sky-800/60 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-lg">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-sky-500/20 border border-sky-400/30 rounded-xl text-sky-400 shrink-0">
-                <ShieldCheck className="w-5 h-5" />
-              </div>
-              <div>
-                <h4 className="text-xs font-bold text-sky-200">Creator Admin Access Required to Host</h4>
-                <p className="text-[11px] text-slate-300">
-                  Log in as Creator Admin to start and control live presenter sessions, or switch to 'Player Join' tab to join as a participant.
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={() => {
-                soundEffects.playClick();
-                setShowAuthModal(true);
-              }}
-              className="px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-xs font-bold shrink-0 transition-colors flex items-center gap-1.5 shadow-md"
-            >
-              <LogIn className="w-3.5 h-3.5" />
-              <span>Creator Sign In</span>
-            </button>
-          </div>
-        )}
-
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-2xl text-center space-y-8 relative overflow-hidden">
-          {/* Background Ambient Glow */}
           <div className="absolute -top-24 -right-24 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl pointer-events-none" />
           <div className="absolute -bottom-24 -left-24 w-96 h-96 bg-indigo-600/10 rounded-full blur-3xl pointer-events-none" />
 
@@ -131,14 +226,12 @@ export const HostView: React.FC<HostViewProps> = ({ roomState, currentUser }) =>
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                 </span>
-                Host: {currentUser?.displayName || currentUser?.email?.split('@')[0] || roomState.hostName || 'Nawab Khan'}
+                Host: {room.hostName || getDisplayName(currentUser)}
               </span>
             </div>
-            <h2 className="text-3xl sm:text-4xl font-extrabold text-white mt-1">
-              {roomState.quizTitle || 'Google AI & Cloud Master Quiz'}
-            </h2>
+            <h2 className="text-3xl sm:text-4xl font-extrabold text-white mt-1">{room.quizTitle}</h2>
             <p className="text-slate-400 max-w-xl mx-auto mt-2 text-sm">
-              Kahoot & Mentimeter style real-time synchronized quiz platform powered by ByteeIT. Share the link or PIN below with users to play live!
+              Kahoot &amp; Mentimeter style real-time synchronized quiz platform. Share the link or PIN below with players!
             </p>
           </div>
 
@@ -150,17 +243,16 @@ export const HostView: React.FC<HostViewProps> = ({ roomState, currentUser }) =>
                 Join Game PIN
               </p>
               <div className="text-5xl font-black font-mono text-amber-400 tracking-widest my-1 select-all">
-                {roomState.roomCode}
+                {room.roomCode}
               </div>
               <p className="text-slate-400 text-xs leading-relaxed">
-                Scan QR code with any mobile camera or enter PIN at <br className="hidden sm:block" />
-                <strong className="text-sky-300 font-mono font-semibold">{typeof window !== 'undefined' ? window.location.origin : 'byteeit-quiz-app.ai.studio'}</strong>
+                Scan the QR code with any mobile camera or enter the PIN at <br className="hidden sm:block" />
+                <strong className="text-sky-300 font-mono font-semibold">{window.location.origin}</strong>
               </p>
               <div className="pt-2">
                 <button
                   onClick={() => {
-                    const shareUrl = `${typeof window !== 'undefined' ? window.location.origin : 'https://byteeit-quiz-app.ai.studio'}/?pin=${roomState.roomCode}`;
-                    navigator.clipboard.writeText(shareUrl);
+                    navigator.clipboard.writeText(joinUrl);
                     soundEffects.playClick();
                     setCopiedLink(true);
                     setTimeout(() => setCopiedLink(false), 2000);
@@ -173,10 +265,9 @@ export const HostView: React.FC<HostViewProps> = ({ roomState, currentUser }) =>
               </div>
             </div>
 
-            {/* Scannable QR Code */}
             <div className="bg-slate-900 p-3.5 rounded-2xl border border-slate-800 flex flex-col items-center gap-2 shrink-0 shadow-lg">
               <QRCodeSVG
-                value={`${typeof window !== 'undefined' ? window.location.origin : 'https://byteeit-quiz-app.ai.studio'}/?pin=${roomState.roomCode}`}
+                value={joinUrl}
                 size={140}
                 bgColor="#020617"
                 fgColor="#38bdf8"
@@ -190,55 +281,22 @@ export const HostView: React.FC<HostViewProps> = ({ roomState, currentUser }) =>
             </div>
           </div>
 
-          {/* Session Selector */}
-          <div className="space-y-3">
-            <label className="text-slate-300 text-xs font-bold uppercase tracking-wider block">
-              Select Question Scope ({filteredQuestions.length} Questions)
-            </label>
-            <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 max-w-3xl mx-auto">
-              {[
-                { id: 'all', label: 'All 20 Questions', desc: 'Sessions 1, 2 & 3' },
-                { id: 1, label: 'Session 1', desc: 'GE Capabilities (Q1-Q6)' },
-                { id: 2, label: 'Session 2', desc: 'Cloud Fundamentals (Q7-Q12)' },
-                { id: 3, label: 'Session 3', desc: 'Security & Commercial (Q13-Q20)' }
-              ].map((sess) => (
-                <button
-                  key={sess.id}
-                  onClick={() => {
-                    requireAdminAction(() => {
-                      soundEffects.playClick();
-                      syncEngine.setSessionFilter(sess.id as number | 'all');
-                    });
-                  }}
-                  className={`p-3 rounded-xl text-left border transition-all ${
-                    roomState.activeSessionFilter === sess.id
-                      ? 'bg-blue-600/20 border-blue-500 text-white shadow-lg shadow-blue-500/10'
-                      : 'bg-slate-800/60 border-slate-700/60 text-slate-300 hover:bg-slate-800'
-                  }`}
-                >
-                  <div className="font-bold text-xs">{sess.label}</div>
-                  <div className="text-[11px] text-slate-400">{sess.desc}</div>
-                </button>
-              ))}
-            </div>
-          </div>
-
           {/* Connected Players list */}
           <div className="bg-slate-950/50 border border-slate-800/80 rounded-xl p-4 max-w-2xl mx-auto">
             <div className="flex items-center justify-between mb-3 text-xs font-semibold text-slate-300">
               <span className="flex items-center gap-1.5">
                 <Users className="w-4 h-4 text-blue-400" />
-                Connected Audience Players ({roomState.players.length})
+                Connected Players ({room.players.length})
               </span>
               <span className="text-slate-500">Ready to play</span>
             </div>
-            {roomState.players.length === 0 ? (
+            {room.players.length === 0 ? (
               <p className="text-xs text-slate-500 italic py-4">
-                No players joined yet. Switch to "Player Join" tab or scan the QR code to test joining!
+                No players joined yet. Share the PIN or QR code above!
               </p>
             ) : (
               <div className="flex flex-wrap gap-2 justify-center">
-                {roomState.players.map((p) => (
+                {room.players.map((p) => (
                   <span
                     key={p.id}
                     className="px-3 py-1 bg-slate-800 border border-slate-700 rounded-lg text-xs text-blue-300 font-medium animate-fade-in"
@@ -250,15 +308,9 @@ export const HostView: React.FC<HostViewProps> = ({ roomState, currentUser }) =>
             )}
           </div>
 
-          {/* Start Button */}
           <div>
             <button
-              onClick={() => {
-                requireAdminAction(() => {
-                  soundEffects.playClick();
-                  syncEngine.startQuiz();
-                });
-              }}
+              onClick={() => runAction(() => startQuiz(room.id, room.questions))}
               className="px-8 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-extrabold rounded-xl text-lg shadow-xl shadow-blue-600/30 flex items-center gap-3 mx-auto transition-transform hover:scale-105 active:scale-95"
             >
               <Play className="w-6 h-6 fill-current" />
@@ -271,29 +323,25 @@ export const HostView: React.FC<HostViewProps> = ({ roomState, currentUser }) =>
   }
 
   // Render Leaderboard / Finished
-  if (roomState.status === 'leaderboard' || roomState.status === 'finished') {
-    const sortedPlayers = [...roomState.players].sort((a, b) => b.score - a.score);
+  if (room.status === 'leaderboard' || room.status === 'finished') {
+    const sortedPlayers = [...room.players].sort((a, b) => b.score - a.score);
     const top3 = sortedPlayers.slice(0, 3);
 
     return (
       <div className="max-w-4xl mx-auto px-4 py-8 space-y-6">
-        <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
-
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-2xl text-center space-y-8">
           <div>
             <div className="inline-flex items-center gap-2 px-3 py-1 bg-amber-500/10 text-amber-400 border border-amber-500/30 rounded-full text-xs font-bold uppercase tracking-widest">
               <Trophy className="w-4 h-4 text-amber-400" />
-              {roomState.status === 'finished' ? 'Final Game Podium' : 'Current Leaderboard'}
+              {room.status === 'finished' ? 'Final Game Podium' : 'Current Leaderboard'}
             </div>
             <h2 className="text-3xl sm:text-4xl font-extrabold text-white mt-3">
-              {roomState.status === 'finished' ? 'Quiz Completed! 🎉' : 'Top Performers'}
+              {room.status === 'finished' ? 'Quiz Completed! 🎉' : 'Top Performers'}
             </h2>
           </div>
 
-          {/* Kahoot Podium Top 3 */}
           {sortedPlayers.length > 0 ? (
             <div className="flex justify-center items-end gap-3 sm:gap-6 pt-8 pb-4">
-              {/* 2nd Place */}
               {top3[1] && (
                 <div className="flex flex-col items-center">
                   <span className="text-xs text-slate-400 font-bold mb-1">{top3[1].name}</span>
@@ -303,8 +351,6 @@ export const HostView: React.FC<HostViewProps> = ({ roomState, currentUser }) =>
                   </div>
                 </div>
               )}
-
-              {/* 1st Place */}
               {top3[0] && (
                 <div className="flex flex-col items-center">
                   <div className="animate-bounce">
@@ -317,8 +363,6 @@ export const HostView: React.FC<HostViewProps> = ({ roomState, currentUser }) =>
                   </div>
                 </div>
               )}
-
-              {/* 3rd Place */}
               {top3[2] && (
                 <div className="flex flex-col items-center">
                   <span className="text-xs text-slate-400 font-bold mb-1">{top3[2].name}</span>
@@ -333,7 +377,6 @@ export const HostView: React.FC<HostViewProps> = ({ roomState, currentUser }) =>
             <p className="text-slate-400 text-sm">No connected players scored points yet.</p>
           )}
 
-          {/* Full Player Scores table */}
           {sortedPlayers.length > 3 && (
             <div className="bg-slate-950/60 border border-slate-800 rounded-xl p-4 max-w-xl mx-auto text-left">
               <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Rankings</h4>
@@ -351,16 +394,10 @@ export const HostView: React.FC<HostViewProps> = ({ roomState, currentUser }) =>
             </div>
           )}
 
-          {/* Action Buttons */}
           <div className="flex flex-wrap justify-center gap-3">
-            {roomState.status === 'leaderboard' && (
+            {room.status === 'leaderboard' && (
               <button
-                onClick={() => {
-                  requireAdminAction(() => {
-                    soundEffects.playClick();
-                    syncEngine.nextQuestion();
-                  });
-                }}
+                onClick={() => runAction(() => nextQuestion(room.id, room.questions, room.currentQuestionIndex))}
                 className="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl text-sm flex items-center gap-2 shadow-lg shadow-blue-600/20"
               >
                 <span>Next Question</span>
@@ -369,17 +406,27 @@ export const HostView: React.FC<HostViewProps> = ({ roomState, currentUser }) =>
             )}
 
             <button
-              onClick={() => {
-                requireAdminAction(() => {
-                  soundEffects.playClick();
-                  syncEngine.resetRoom();
-                });
-              }}
+              onClick={() => runAction(() => resetRoom(room.id))}
               className="px-6 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold rounded-xl text-sm flex items-center gap-2 border border-slate-700"
             >
               <RotateCcw className="w-4 h-4" />
               <span>Back to Lobby</span>
             </button>
+
+            {room.status === 'finished' && (
+              <button
+                onClick={() => {
+                  soundEffects.playClick();
+                  clearActiveHostRoomCode();
+                  setRoom(null);
+                  setMode('builder');
+                }}
+                className="px-6 py-3 bg-emerald-700 hover:bg-emerald-600 text-white font-bold rounded-xl text-sm flex items-center gap-2 shadow-lg"
+              >
+                <PlusCircle className="w-4 h-4" />
+                <span>Host a New Quiz</span>
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -387,50 +434,42 @@ export const HostView: React.FC<HostViewProps> = ({ roomState, currentUser }) =>
   }
 
   // Question or Revealed Screen
-  const isRevealed = roomState.status === 'revealed';
+  const isRevealed = room.status === 'revealed';
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
-      <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
-
-      {/* Question Header Status Bar */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-6 shadow-xl flex flex-col sm:flex-row items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <span className="px-2.5 py-0.5 bg-blue-500/20 border border-blue-400/30 text-blue-300 rounded-full text-xs font-bold">
-              {currentQ.sessionTitle}
-            </span>
+            {currentQ.sessionTitle && (
+              <span className="px-2.5 py-0.5 bg-blue-500/20 border border-blue-400/30 text-blue-300 rounded-full text-xs font-bold">
+                {currentQ.sessionTitle}
+              </span>
+            )}
             <span className="text-xs text-slate-400 font-mono">
-              Q{roomState.currentQuestionIndex + 1} of {filteredQuestions.length}
+              Q{room.currentQuestionIndex + 1} of {room.questions.length}
             </span>
           </div>
           <p className="text-xs text-slate-400">
-            {totalSubmissions} of {Math.max(1, roomState.players.length)} player responses recorded
+            {totalSubmissions} of {Math.max(1, room.players.length)} player responses recorded
           </p>
         </div>
 
-        {/* Timer Ring */}
         <div className="flex items-center gap-4">
           <div
             className={`w-16 h-16 rounded-full border-4 flex items-center justify-center font-black text-2xl font-mono shadow-inner transition-colors ${
-              roomState.timerRemaining <= 5
+              timerRemaining <= 5
                 ? 'border-red-500 text-red-400 bg-red-950/40 animate-pulse'
                 : 'border-blue-500 text-blue-300 bg-slate-950'
             }`}
           >
-            {roomState.timerRemaining}
+            {timerRemaining}
           </div>
 
-          {/* Quick Action buttons */}
           <div className="flex items-center gap-2">
             {!isRevealed ? (
               <button
-                onClick={() => {
-                  requireAdminAction(() => {
-                    soundEffects.playCorrect();
-                    syncEngine.revealAnswer();
-                  });
-                }}
+                onClick={() => runAction(() => revealAnswer(room.id))}
                 className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-md"
               >
                 <Eye className="w-4 h-4" />
@@ -438,12 +477,7 @@ export const HostView: React.FC<HostViewProps> = ({ roomState, currentUser }) =>
               </button>
             ) : (
               <button
-                onClick={() => {
-                  requireAdminAction(() => {
-                    soundEffects.playClick();
-                    syncEngine.showLeaderboard();
-                  });
-                }}
+                onClick={() => runAction(() => showLeaderboard(room.id))}
                 className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-md"
               >
                 <Trophy className="w-4 h-4" />
@@ -454,18 +488,14 @@ export const HostView: React.FC<HostViewProps> = ({ roomState, currentUser }) =>
         </div>
       </div>
 
-      {/* Main Question Card */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-2xl relative overflow-hidden">
-        <h2 className="text-xl sm:text-2xl font-bold text-white leading-relaxed mb-6">
-          {currentQ.question}
-        </h2>
+        <h2 className="text-xl sm:text-2xl font-bold text-white leading-relaxed mb-6">{currentQ.question}</h2>
 
-        {/* Mentimeter / Kahoot Style Live Response Bar Graph */}
         <div className="my-8">
           <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">
             <span className="flex items-center gap-1.5">
               <BarChart3 className="w-4 h-4 text-blue-400" />
-              Live Mentimeter Response Distribution
+              Live Response Distribution
             </span>
             <span>{totalSubmissions} Total Answers</span>
           </div>
@@ -478,32 +508,19 @@ export const HostView: React.FC<HostViewProps> = ({ roomState, currentUser }) =>
 
               return (
                 <div key={shape.name} className="flex flex-col items-center h-full justify-end relative group">
-                  {/* Option Label above bar */}
                   <span className="text-xs font-bold font-mono text-slate-300 mb-1">{percentage}%</span>
-
-                  {/* Vertical Animated Bar */}
                   <div className="w-full bg-slate-800/80 rounded-t-xl overflow-hidden flex items-end h-full relative">
                     <div
                       className={`w-full transition-all duration-500 rounded-t-xl ${
-                        isRevealed
-                          ? isCorrectOption
-                            ? 'bg-emerald-500'
-                            : 'bg-slate-700 opacity-40'
-                          : shape.bg
+                        isRevealed ? (isCorrectOption ? 'bg-emerald-500' : 'bg-slate-700 opacity-40') : shape.bg
                       }`}
                       style={{ height: `${count > 0 ? Math.max(12, percentage) : 0}%` }}
                     />
                   </div>
-
-                  {/* Count indicator */}
                   <span className="text-[11px] font-semibold text-slate-400 mt-1">{count} votes</span>
-
-                  {/* Option Letter Tag */}
                   <div
                     className={`mt-1 px-2 py-0.5 rounded text-xs font-black ${
-                      isCorrectOption
-                        ? 'bg-emerald-500 text-white'
-                        : `${shape.bg} text-white`
+                      isCorrectOption ? 'bg-emerald-500 text-white' : `${shape.bg} text-white`
                     }`}
                   >
                     {shape.name}
@@ -514,7 +531,6 @@ export const HostView: React.FC<HostViewProps> = ({ roomState, currentUser }) =>
           </div>
         </div>
 
-        {/* Option Text Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-6">
           {currentQ.options.map((opt, idx) => {
             const isCorrect = isRevealed && idx === currentQ.correctAnswer;
@@ -535,37 +551,26 @@ export const HostView: React.FC<HostViewProps> = ({ roomState, currentUser }) =>
                   {shape.name}
                 </span>
                 <span className="flex-1">{opt}</span>
-                {isCorrect && (
-                  <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
-                )}
+                {isCorrect && <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />}
               </div>
             );
           })}
         </div>
 
-        {/* Detailed Explanation Popup when Revealed */}
         {isRevealed && (
           <div className="mt-6 p-5 bg-emerald-950/30 border border-emerald-500/40 rounded-2xl space-y-2 animate-fade-in">
             <div className="flex items-center gap-2 text-emerald-400 font-bold text-sm">
               <Sparkles className="w-4 h-4" />
               <span>Correct Answer & Knowledge Brief:</span>
             </div>
-            <p className="text-xs sm:text-sm text-emerald-100/90 leading-relaxed">
-              {currentQ.explanation}
-            </p>
+            <p className="text-xs sm:text-sm text-emerald-100/90 leading-relaxed">{currentQ.explanation}</p>
           </div>
         )}
       </div>
 
-      {/* Host Controls Footer */}
       <div className="flex items-center justify-between bg-slate-900 border border-slate-800 p-4 rounded-xl">
         <button
-          onClick={() => {
-            requireAdminAction(() => {
-              soundEffects.playClick();
-              syncEngine.resetRoom();
-            });
-          }}
+          onClick={() => runAction(() => resetRoom(room.id))}
           className="px-4 py-2 text-xs font-semibold text-slate-400 hover:text-white transition-colors"
         >
           Reset Room
@@ -573,12 +578,7 @@ export const HostView: React.FC<HostViewProps> = ({ roomState, currentUser }) =>
 
         <div className="flex items-center gap-3">
           <button
-            onClick={() => {
-              requireAdminAction(() => {
-                soundEffects.playClick();
-                syncEngine.showLeaderboard();
-              });
-            }}
+            onClick={() => runAction(() => showLeaderboard(room.id))}
             className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs rounded-lg border border-slate-700 flex items-center gap-1.5"
           >
             <Trophy className="w-3.5 h-3.5 text-amber-400" />
@@ -586,12 +586,7 @@ export const HostView: React.FC<HostViewProps> = ({ roomState, currentUser }) =>
           </button>
 
           <button
-            onClick={() => {
-              requireAdminAction(() => {
-                soundEffects.playClick();
-                syncEngine.nextQuestion();
-              });
-            }}
+            onClick={() => runAction(() => nextQuestion(room.id, room.questions, room.currentQuestionIndex))}
             className="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-lg shadow-md flex items-center gap-1.5"
           >
             <span>Next Question</span>

@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
-import { loginWithGoogle, loginWithEmail, registerWithEmail } from '../lib/firebase';
+import { signInWithGoogle, signInWithEmail, signUpWithEmail, type User } from '../lib/supabase';
 import { soundEffects } from '../lib/audio';
-import { ShieldCheck, LogIn, Mail, Lock, User as UserIcon, X, Sparkles } from 'lucide-react';
-import { User } from 'firebase/auth';
+import { ShieldCheck, LogIn, Mail, Lock, User as UserIcon, X } from 'lucide-react';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -16,39 +15,55 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
   const [authPass, setAuthPass] = useState('');
   const [authName, setAuthName] = useState('');
   const [authError, setAuthError] = useState('');
+  const [infoMessage, setInfoMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!isOpen) return null;
 
-  const handleGoogleAuth = async () => {
+  const resetMessages = () => {
     setAuthError('');
+    setInfoMessage('');
+  };
+
+  const handleGoogleAuth = async () => {
+    resetMessages();
     setIsSubmitting(true);
     try {
-      const user = await loginWithGoogle();
-      soundEffects.playClick();
-      if (onSuccess) onSuccess(user);
-      onClose();
+      await signInWithGoogle();
+      // Supabase redirects the browser for OAuth; nothing else to do here.
     } catch (err: any) {
       setAuthError(err.message || 'Google sign-in failed');
-    } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleEmailAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setAuthError('');
+    resetMessages();
+
+    if (authPass.length < 6) {
+      setAuthError('Password must be at least 6 characters.');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
-      let user: User;
       if (authMode === 'login') {
-        user = await loginWithEmail(authEmail, authPass);
+        const user = await signInWithEmail(authEmail, authPass);
+        soundEffects.playClick();
+        if (onSuccess) onSuccess(user);
+        onClose();
       } else {
-        user = await registerWithEmail(authEmail, authPass, authName);
+        const result = await signUpWithEmail(authEmail, authPass, authName);
+        soundEffects.playClick();
+        if (result.needsEmailConfirmation) {
+          setInfoMessage('Account created! Check your email to confirm before signing in.');
+          setAuthMode('login');
+        } else if (result.user) {
+          if (onSuccess) onSuccess(result.user);
+          onClose();
+        }
       }
-      soundEffects.playClick();
-      if (onSuccess) onSuccess(user);
-      onClose();
     } catch (err: any) {
       setAuthError(err.message || 'Authentication failed');
     } finally {
@@ -72,16 +87,22 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
             <ShieldCheck className="w-8 h-8" />
           </div>
           <h3 className="text-xl font-extrabold text-white">
-            {authMode === 'login' ? 'Creator Admin Sign In' : 'Create Creator Account'}
+            {authMode === 'login' ? 'Sign In' : 'Create Your Account'}
           </h3>
           <p className="text-xs text-slate-400 leading-relaxed">
-            Log in to host live presenter rooms, create custom quizzes, and save directly to ByteeIT's Cloud Database!
+            Sign in to create quizzes, host live presenter rooms, and share quizzes with your team.
           </p>
         </div>
 
         {authError && (
           <div className="p-3 bg-red-950/80 border border-red-800 text-red-300 rounded-xl text-xs text-center font-medium">
             {authError}
+          </div>
+        )}
+
+        {infoMessage && (
+          <div className="p-3 bg-emerald-950/80 border border-emerald-800 text-emerald-300 rounded-xl text-xs text-center font-medium">
+            {infoMessage}
           </div>
         )}
 
@@ -133,7 +154,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
                 required
                 value={authEmail}
                 onChange={(e) => setAuthEmail(e.target.value)}
-                placeholder="creator@byteeit.com"
+                placeholder="you@example.com"
                 className="w-full pl-9 pr-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-blue-500"
               />
             </div>
@@ -146,9 +167,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
               <input
                 type="password"
                 required
+                minLength={6}
                 value={authPass}
                 onChange={(e) => setAuthPass(e.target.value)}
-                placeholder="••••••••"
+                placeholder="At least 6 characters"
                 className="w-full pl-9 pr-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-blue-500"
               />
             </div>
@@ -160,14 +182,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
             className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl text-xs transition-colors shadow-md disabled:opacity-50 flex items-center justify-center gap-2"
           >
             <LogIn className="w-4 h-4" />
-            <span>{authMode === 'login' ? 'Sign In as Creator' : 'Create Creator Account'}</span>
+            <span>{authMode === 'login' ? 'Sign In' : 'Create Account'}</span>
           </button>
         </form>
 
         <div className="flex items-center justify-between text-xs text-slate-400 pt-2 border-t border-slate-800">
           <button
             type="button"
-            onClick={() => setAuthMode(authMode === 'login' ? 'register' : 'login')}
+            onClick={() => {
+              resetMessages();
+              setAuthMode(authMode === 'login' ? 'register' : 'login');
+            }}
             className="hover:text-blue-400 font-semibold"
           >
             {authMode === 'login' ? 'Need an account? Register' : 'Already have an account? Sign In'}

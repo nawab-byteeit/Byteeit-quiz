@@ -1,56 +1,50 @@
 import React, { useState, useEffect } from 'react';
-import { Question, ViewMode, QuizPreset } from '../types';
+import { Question, ViewMode } from '../types';
 import { PRESET_QUIZZES } from '../data/presetQuizzes';
-import { syncEngine } from '../lib/syncEngine';
 import { soundEffects } from '../lib/audio';
-import { 
-  onAuthChange, 
-  loginWithGoogle, 
-  loginWithEmail, 
-  registerWithEmail, 
-  logoutUser, 
-  saveQuizToFirestore, 
-  fetchUserQuizzes, 
-  fetchAllCloudQuizzes,
-  deleteQuizFromFirestore,
-  seedPresetsToFirestore
-} from '../lib/firebase';
-import { User } from 'firebase/auth';
-import { 
-  Plus, Trash2, Edit3, CheckCircle, Sparkles, Tv, Copy, Download, Upload, 
-  Layers, ArrowRight, ShieldCheck, Database, LogIn, LogOut, UserCheck, Cloud, 
-  Save, Key, Mail, Lock, RefreshCw 
+import { type User, getDisplayName } from '../lib/supabase';
+import {
+  StoredQuiz,
+  Collaborator,
+  createQuiz,
+  updateQuiz,
+  deleteQuiz,
+  listMyQuizzes,
+  listCollaborators,
+  shareQuizWithEmail,
+  removeCollaborator,
+  seedPresetQuizzes
+} from '../lib/quizzes';
+import { createRoom, generateRoomCode, saveActiveHostRoomCode } from '../lib/rooms';
+import { AuthModal } from './AuthModal';
+import {
+  Plus, Trash2, Edit3, CheckCircle, Sparkles, Tv, Copy, Upload,
+  Layers, ArrowRight, ShieldCheck, Database, LogIn, Users2, Cloud,
+  RefreshCw, Mail, X
 } from 'lucide-react';
 import byteeitLogo from '../assets/images/byteeit_logo_1784809227570.jpg';
 
 interface QuizBuilderViewProps {
   setMode: (mode: ViewMode) => void;
-  currentRoomCode: string;
-  currentUser?: User | null;
+  currentUser: User | null;
 }
 
-export const QuizBuilderView: React.FC<QuizBuilderViewProps> = ({ setMode, currentRoomCode, currentUser: propUser }) => {
-  const [currentUser, setCurrentUser] = useState<User | null>(propUser || null);
-  const [userCloudQuizzes, setUserCloudQuizzes] = useState<QuizPreset[]>([]);
-  const [allCloudQuizzes, setAllCloudQuizzes] = useState<QuizPreset[]>([]);
+export const QuizBuilderView: React.FC<QuizBuilderViewProps> = ({ setMode, currentUser }) => {
+  const [myQuizzes, setMyQuizzes] = useState<{ owned: StoredQuiz[]; shared: StoredQuiz[] }>({
+    owned: [],
+    shared: []
+  });
   const [isLoadingCloud, setIsLoadingCloud] = useState(false);
-
-  // Auth Modal state
   const [showAuthModal, setShowAuthModal] = useState(false);
-  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
-  const [authEmail, setAuthEmail] = useState('');
-  const [authPass, setAuthPass] = useState('');
-  const [authName, setAuthName] = useState('');
-  const [authError, setAuthError] = useState('');
-  const [isSubmittingAuth, setIsSubmittingAuth] = useState(false);
 
   // Quiz Editor State
-  const [selectedPresetId, setSelectedPresetId] = useState<string>('gcp_cloud_master');
-  const [quizTitle, setQuizTitle] = useState<string>('Google AI & Cloud Master Quiz');
-  const [quizCategory, setQuizCategory] = useState<string>('Google Cloud & AI');
-  const [hostName, setHostName] = useState<string>('Nawab Khan');
-  const [customRoomPin, setCustomRoomPin] = useState<string>(currentRoomCode || 'BYTE2026');
-  
+  const [loadedQuizId, setLoadedQuizId] = useState<string | null>(null);
+  const [selectedPresetId, setSelectedPresetId] = useState<string>(PRESET_QUIZZES[0].id);
+  const [quizTitle, setQuizTitle] = useState<string>(PRESET_QUIZZES[0].title);
+  const [quizCategory, setQuizCategory] = useState<string>(PRESET_QUIZZES[0].category);
+  const [hostName, setHostName] = useState<string>('');
+  const [customRoomPin, setCustomRoomPin] = useState<string>(generateRoomCode());
+
   const [questions, setQuestions] = useState<Question[]>(PRESET_QUIZZES[0].questions);
   const [editingQuestionIdx, setEditingQuestionIdx] = useState<number | null>(null);
 
@@ -64,28 +58,31 @@ export const QuizBuilderView: React.FC<QuizBuilderViewProps> = ({ setMode, curre
   const [jsonInput, setJsonInput] = useState('');
   const [showJsonModal, setShowJsonModal] = useState(false);
   const [isSavingCloud, setIsSavingCloud] = useState(false);
+  const [isLaunching, setIsLaunching] = useState(false);
 
-  // Subscribe to Auth
+  // Sharing
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
+  const [shareEmail, setShareEmail] = useState('');
+  const [isSharing, setIsSharing] = useState(false);
+  const [shareError, setShareError] = useState('');
+
   useEffect(() => {
-    const unsubscribe = onAuthChange((user) => {
-      setCurrentUser(user);
-      if (user) {
-        setHostName(user.displayName || user.email?.split('@')[0] || 'Nawab Khan');
-        loadCloudQuizzes(user.uid);
-      } else {
-        loadPublicCloudQuizzes();
-      }
-    });
-    return () => unsubscribe();
-  }, []);
+    if (currentUser) {
+      setHostName((prev) => prev || getDisplayName(currentUser));
+      loadCloudQuizzes();
+    } else {
+      setMyQuizzes({ owned: [], shared: [] });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser?.id]);
 
-  const loadCloudQuizzes = async (uid: string) => {
+  const loadCloudQuizzes = async () => {
+    if (!currentUser) return;
     setIsLoadingCloud(true);
     try {
-      const userQuizzes = await fetchUserQuizzes(uid);
-      setUserCloudQuizzes(userQuizzes);
-      const publicQuizzes = await fetchAllCloudQuizzes();
-      setAllCloudQuizzes(publicQuizzes);
+      const result = await listMyQuizzes(currentUser);
+      setMyQuizzes(result);
     } catch (err) {
       console.error('Failed to load cloud quizzes:', err);
     } finally {
@@ -93,115 +90,66 @@ export const QuizBuilderView: React.FC<QuizBuilderViewProps> = ({ setMode, curre
     }
   };
 
-  const loadPublicCloudQuizzes = async () => {
-    setIsLoadingCloud(true);
-    try {
-      const publicQuizzes = await fetchAllCloudQuizzes();
-      setAllCloudQuizzes(publicQuizzes);
-    } catch (err) {
-      console.error('Failed to load public cloud quizzes:', err);
-    } finally {
-      setIsLoadingCloud(false);
-    }
-  };
-
-  // Auth Handlers
-  const handleGoogleAuth = async () => {
-    setAuthError('');
-    setIsSubmittingAuth(true);
-    try {
-      await loginWithGoogle();
-      setShowAuthModal(false);
-      soundEffects.playClick();
-    } catch (err: any) {
-      setAuthError(err.message || 'Google sign-in failed');
-    } finally {
-      setIsSubmittingAuth(false);
-    }
-  };
-
-  const handleEmailAuthSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setAuthError('');
-    setIsSubmittingAuth(true);
-    try {
-      if (authMode === 'login') {
-        await loginWithEmail(authEmail, authPass);
-      } else {
-        await registerWithEmail(authEmail, authPass, authName);
-      }
-      setShowAuthModal(false);
-      soundEffects.playClick();
-    } catch (err: any) {
-      setAuthError(err.message || 'Authentication failed');
-    } finally {
-      setIsSubmittingAuth(false);
-    }
-  };
-
-  const handleLogout = async () => {
+  // Select a built-in preset
+  const handleSelectPreset = (presetId: string) => {
     soundEffects.playClick();
-    await logoutUser();
-  };
-
-  // Select Preset or Cloud Quiz
-  const handleSelectPreset = (presetId: string, customQuestions?: Question[], customTitle?: string, customCategory?: string) => {
-    soundEffects.playClick();
-    setSelectedPresetId(presetId);
-    if (customQuestions) {
-      setQuizTitle(customTitle || 'Cloud Quiz');
-      setQuizCategory(customCategory || 'Cloud DB');
-      setQuestions([...customQuestions]);
-      return;
-    }
     const found = PRESET_QUIZZES.find((p) => p.id === presetId);
-    if (found) {
-      setQuizTitle(found.title);
-      setQuizCategory(found.category);
-      setQuestions([...found.questions]);
-    }
+    if (!found) return;
+    setSelectedPresetId(presetId);
+    setLoadedQuizId(null);
+    setQuizTitle(found.title);
+    setQuizCategory(found.category);
+    setQuestions([...found.questions]);
   };
 
-  // Save Quiz to Firestore Cloud Database
+  // Select a quiz saved in the cloud (owned or shared-with-me)
+  const handleSelectCloudQuiz = (quiz: StoredQuiz) => {
+    soundEffects.playClick();
+    setSelectedPresetId('');
+    setLoadedQuizId(quiz.id);
+    setQuizTitle(quiz.title);
+    setQuizCategory(quiz.category);
+    setQuestions([...quiz.questions]);
+    setShowShareModal(false);
+  };
+
+  // Save Quiz to Supabase (create new, or update the loaded one)
   const handleSaveToCloud = async () => {
     if (!currentUser) {
       setShowAuthModal(true);
       return;
     }
     if (questions.length === 0) {
-      alert('Add at least 1 question before saving to database!');
+      alert('Add at least 1 question before saving!');
       return;
     }
 
     setIsSavingCloud(true);
     try {
-      const docId = await saveQuizToFirestore(
-        currentUser,
-        quizTitle,
-        'Custom Cloud Quiz hosted on ByteeIT Platform',
-        quizCategory,
-        questions
-      );
+      if (loadedQuizId) {
+        await updateQuiz(loadedQuizId, { title: quizTitle, category: quizCategory, questions });
+      } else {
+        const created = await createQuiz(currentUser, quizTitle, '', quizCategory, questions);
+        setLoadedQuizId(created.id);
+      }
       soundEffects.playClick();
-      alert('🎉 Quiz successfully saved to Firebase Database!');
-      loadCloudQuizzes(currentUser.uid);
+      await loadCloudQuizzes();
     } catch (err: any) {
-      alert(`Failed to save to database: ${err.message}`);
+      alert(`Failed to save: ${err.message}`);
     } finally {
       setIsSavingCloud(false);
     }
   };
 
   const handleDeleteCloudQuiz = async (quizId: string) => {
-    if (!currentUser) return;
-    if (confirm('Are you sure you want to delete this cloud quiz?')) {
-      try {
-        await deleteQuizFromFirestore(quizId);
-        soundEffects.playClick();
-        loadCloudQuizzes(currentUser.uid);
-      } catch (err: any) {
-        alert(`Failed to delete: ${err.message}`);
-      }
+    if (!confirm('Delete this quiz permanently? This cannot be undone.')) return;
+    try {
+      await deleteQuiz(quizId);
+      if (loadedQuizId === quizId) setLoadedQuizId(null);
+      soundEffects.playClick();
+      await loadCloudQuizzes();
+    } catch (err: any) {
+      alert(`Failed to delete: ${err.message}`);
     }
   };
 
@@ -212,26 +160,63 @@ export const QuizBuilderView: React.FC<QuizBuilderViewProps> = ({ setMode, curre
     }
     setIsSavingCloud(true);
     try {
-      const count = await seedPresetsToFirestore(currentUser);
+      const count = await seedPresetQuizzes(currentUser, PRESET_QUIZZES);
       soundEffects.playClick();
-      alert(`🎉 Successfully saved ${count} preset quizzes (including all hardcoded questions) to your Firebase Firestore database!`);
-      loadCloudQuizzes(currentUser.uid);
+      alert(`Saved ${count} preset quizzes to your account!`);
+      await loadCloudQuizzes();
     } catch (err: any) {
-      alert(`Failed to save presets to Firestore: ${err.message}`);
+      alert(`Failed to save presets: ${err.message}`);
     } finally {
       setIsSavingCloud(false);
+    }
+  };
+
+  // Sharing (full co-editor access by email)
+  const openShareModal = async () => {
+    if (!loadedQuizId) {
+      alert('Save this quiz to the cloud first -- then you can share it.');
+      return;
+    }
+    setShareError('');
+    setShareEmail('');
+    setShowShareModal(true);
+    try {
+      setCollaborators(await listCollaborators(loadedQuizId));
+    } catch (err: any) {
+      setShareError(err.message || 'Failed to load collaborators');
+    }
+  };
+
+  const handleShare = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!loadedQuizId || !currentUser) return;
+    setIsSharing(true);
+    setShareError('');
+    try {
+      await shareQuizWithEmail(loadedQuizId, shareEmail, currentUser.id);
+      setShareEmail('');
+      setCollaborators(await listCollaborators(loadedQuizId));
+      soundEffects.playClick();
+    } catch (err: any) {
+      setShareError(err.message || 'Failed to share quiz');
+    } finally {
+      setIsSharing(false);
+    }
+  };
+
+  const handleRemoveCollaborator = async (id: string) => {
+    try {
+      await removeCollaborator(id);
+      setCollaborators((prev) => prev.filter((c) => c.id !== id));
+    } catch (err: any) {
+      alert(`Failed to remove access: ${err.message}`);
     }
   };
 
   // Generate random room code
   const handleGeneratePin = () => {
     soundEffects.playClick();
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    let code = '';
-    for (let i = 0; i < 6; i++) {
-      code += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    setCustomRoomPin(code);
+    setCustomRoomPin(generateRoomCode());
   };
 
   // Add or Save Question
@@ -268,7 +253,6 @@ export const QuizBuilderView: React.FC<QuizBuilderViewProps> = ({ setMode, curre
       setQuestions([...questions, formattedQuestion]);
     }
 
-    // Reset Form
     setQText('');
     setQOptions(['', '', '', '']);
     setQCorrect(0);
@@ -295,25 +279,35 @@ export const QuizBuilderView: React.FC<QuizBuilderViewProps> = ({ setMode, curre
     setQuestions(questions.filter((_, i) => i !== idx));
   };
 
-  // Launch Host Mode with Custom Created Quiz
-  const handleLaunchQuiz = () => {
+  // Launch Host Mode with the current quiz
+  const handleLaunchQuiz = async () => {
+    if (!currentUser) {
+      setShowAuthModal(true);
+      return;
+    }
     if (questions.length === 0) {
       alert('Please add at least 1 question before launching!');
       return;
     }
 
     soundEffects.playClick();
-
-    // Create room with custom parameters
-    syncEngine.createCustomRoom(
-      customRoomPin,
-      hostName || 'Nawab Khan',
-      quizTitle || 'Custom Quiz Room',
-      questions
-    );
-
-    // Switch view mode to host
-    setMode('host');
+    setIsLaunching(true);
+    try {
+      const room = await createRoom({
+        user: currentUser,
+        hostName: hostName || getDisplayName(currentUser),
+        quizTitle: quizTitle || 'Custom Quiz Room',
+        questions,
+        quizId: loadedQuizId || undefined,
+        roomCode: customRoomPin
+      });
+      saveActiveHostRoomCode(room.roomCode);
+      setMode('host');
+    } catch (err: any) {
+      alert(`Failed to launch room: ${err.message}`);
+    } finally {
+      setIsLaunching(false);
+    }
   };
 
   // Import JSON Questions
@@ -322,6 +316,7 @@ export const QuizBuilderView: React.FC<QuizBuilderViewProps> = ({ setMode, curre
       const parsed = JSON.parse(jsonInput);
       if (Array.isArray(parsed) && parsed.length > 0) {
         setQuestions(parsed);
+        setLoadedQuizId(null);
         setShowJsonModal(false);
         soundEffects.playClick();
         alert(`Successfully imported ${parsed.length} custom questions!`);
@@ -357,75 +352,68 @@ export const QuizBuilderView: React.FC<QuizBuilderViewProps> = ({ setMode, curre
               Create & Host Any Quiz
             </h2>
             <p className="text-slate-400 text-xs sm:text-sm mt-1">
-              Design custom questions, save to Firebase Database, set custom PINs, and host synchronized live games!
+              Design custom questions, save them to your account, share with teammates by email, and host live games.
             </p>
           </div>
         </div>
 
-        {/* Action Buttons */}
         <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
-          {currentUser ? (
-            <div className="flex items-center gap-2 bg-slate-950/80 border border-slate-800 px-3.5 py-2 rounded-2xl">
-              <span className="text-xs text-slate-300 font-semibold flex items-center gap-1.5">
-                <UserCheck className="w-4 h-4 text-emerald-400" />
-                {currentUser.displayName || currentUser.email}
-              </span>
-              <button
-                onClick={handleLogout}
-                className="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-white"
-                title="Sign Out"
-              >
-                <LogOut className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          ) : (
+          {!currentUser && (
             <button
               onClick={() => setShowAuthModal(true)}
               className="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-2xl text-xs flex items-center gap-2 shadow-lg shadow-blue-600/20"
             >
               <LogIn className="w-4 h-4" />
-              <span>Creator Login / Sign Up</span>
+              <span>Sign In / Sign Up</span>
             </button>
           )}
 
           <button
             onClick={handleLaunchQuiz}
-            className="w-full sm:w-auto px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-extrabold rounded-2xl shadow-xl shadow-emerald-600/25 flex items-center justify-center gap-2 text-sm transition-all shrink-0"
+            disabled={isLaunching}
+            className="w-full sm:w-auto px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 disabled:opacity-50 text-white font-extrabold rounded-2xl shadow-xl shadow-emerald-600/25 flex items-center justify-center gap-2 text-sm transition-all shrink-0"
           >
             <Tv className="w-5 h-5" />
-            <span>Launch & Host Live Room</span>
+            <span>{isLaunching ? 'Launching…' : 'Launch & Host Live Room'}</span>
             <ArrowRight className="w-4 h-4" />
           </button>
         </div>
       </div>
 
-      {/* Main Grid: Settings & Presets on Left, Question Builder on Right */}
+      {/* Main Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        
         {/* Left Column: Room & Host Config + Presets */}
         <div className="lg:col-span-5 space-y-6">
-          {/* Room Configuration Card */}
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-amber-400" />
                 1. Host & Room Configuration
               </h3>
-              <button
-                onClick={handleSaveToCloud}
-                disabled={isSavingCloud}
-                className="px-3 py-1 bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold rounded-lg flex items-center gap-1 shadow-sm disabled:opacity-50"
-              >
-                <Database className="w-3.5 h-3.5" />
-                <span>{isSavingCloud ? 'Saving...' : 'Save to Cloud DB'}</span>
-              </button>
+              <div className="flex items-center gap-1.5">
+                {loadedQuizId && currentUser && (
+                  <button
+                    onClick={openShareModal}
+                    className="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-bold rounded-lg flex items-center gap-1 shadow-sm"
+                  >
+                    <Users2 className="w-3.5 h-3.5" />
+                    <span>Share</span>
+                  </button>
+                )}
+                <button
+                  onClick={handleSaveToCloud}
+                  disabled={isSavingCloud}
+                  className="px-3 py-1 bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold rounded-lg flex items-center gap-1 shadow-sm disabled:opacity-50"
+                >
+                  <Database className="w-3.5 h-3.5" />
+                  <span>{isSavingCloud ? 'Saving...' : loadedQuizId ? 'Update Quiz' : 'Save Quiz'}</span>
+                </button>
+              </div>
             </div>
 
             <div className="space-y-3">
               <div>
-                <label className="text-xs font-semibold text-slate-400 block mb-1">
-                  Quiz Title
-                </label>
+                <label className="text-xs font-semibold text-slate-400 block mb-1">Quiz Title</label>
                 <input
                   type="text"
                   value={quizTitle}
@@ -436,9 +424,7 @@ export const QuizBuilderView: React.FC<QuizBuilderViewProps> = ({ setMode, curre
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-slate-400 block mb-1">
-                  Host Name / Brand
-                </label>
+                <label className="text-xs font-semibold text-slate-400 block mb-1">Host Name / Brand</label>
                 <input
                   type="text"
                   value={hostName}
@@ -449,9 +435,7 @@ export const QuizBuilderView: React.FC<QuizBuilderViewProps> = ({ setMode, curre
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-slate-400 block mb-1">
-                  Custom Game PIN / Room Code
-                </label>
+                <label className="text-xs font-semibold text-slate-400 block mb-1">Custom Game PIN / Room Code</label>
                 <div className="flex items-center gap-2">
                   <input
                     type="text"
@@ -471,12 +455,12 @@ export const QuizBuilderView: React.FC<QuizBuilderViewProps> = ({ setMode, curre
             </div>
           </div>
 
-          {/* Preset Quiz Selector & Firestore Cloud Quizzes */}
+          {/* Preset Quiz Selector & Cloud Quizzes */}
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
                 <Layers className="w-4 h-4 text-blue-400" />
-                2. Choose Quiz Template / Cloud DB
+                2. Choose a Quiz
               </h3>
               <button
                 onClick={() => setShowJsonModal(true)}
@@ -486,38 +470,34 @@ export const QuizBuilderView: React.FC<QuizBuilderViewProps> = ({ setMode, curre
               </button>
             </div>
 
-            {/* My Cloud Database Quizzes Section */}
             {currentUser && (
               <div className="space-y-2 border-b border-slate-800 pb-4">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-emerald-400 flex items-center gap-1">
-                    <Cloud className="w-3.5 h-3.5" /> My Cloud Database Quizzes ({userCloudQuizzes.length})
+                    <Cloud className="w-3.5 h-3.5" /> My Quizzes ({myQuizzes.owned.length})
                   </span>
                   <button
-                    onClick={() => loadCloudQuizzes(currentUser.uid)}
+                    onClick={loadCloudQuizzes}
                     className="text-[11px] text-slate-400 hover:text-white flex items-center gap-1"
                   >
                     <RefreshCw className={`w-3 h-3 ${isLoadingCloud ? 'animate-spin' : ''}`} /> Refresh
                   </button>
                 </div>
 
-                {userCloudQuizzes.length === 0 ? (
-                  <p className="text-xs text-slate-500 italic">No cloud quizzes saved yet. Click "Save to Cloud DB" above to store your quizzes!</p>
+                {myQuizzes.owned.length === 0 ? (
+                  <p className="text-xs text-slate-500 italic">No saved quizzes yet. Click "Save Quiz" above to store one!</p>
                 ) : (
                   <div className="space-y-2 max-h-48 overflow-y-auto">
-                    {userCloudQuizzes.map((cq) => (
+                    {myQuizzes.owned.map((cq) => (
                       <div
                         key={cq.id}
                         className={`p-3 rounded-xl border flex items-center justify-between gap-2 transition-all ${
-                          selectedPresetId === cq.id
+                          loadedQuizId === cq.id
                             ? 'bg-emerald-950/60 border-emerald-500 text-white'
                             : 'bg-slate-950/60 border-slate-800 text-slate-300'
                         }`}
                       >
-                        <button
-                          onClick={() => handleSelectPreset(cq.id, cq.questions, cq.title, cq.category)}
-                          className="text-left min-w-0 flex-1"
-                        >
+                        <button onClick={() => handleSelectCloudQuiz(cq)} className="text-left min-w-0 flex-1">
                           <div className="flex items-center gap-1.5 text-[10px] text-emerald-400 font-mono font-bold">
                             <span>{cq.category}</span>
                             <span>•</span>
@@ -528,12 +508,41 @@ export const QuizBuilderView: React.FC<QuizBuilderViewProps> = ({ setMode, curre
                         <button
                           onClick={() => handleDeleteCloudQuiz(cq.id)}
                           className="p-1 hover:bg-red-950 rounded text-slate-400 hover:text-red-400"
-                          title="Delete from Firestore"
+                          title="Delete Quiz"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     ))}
+                  </div>
+                )}
+
+                {myQuizzes.shared.length > 0 && (
+                  <div className="space-y-2 pt-2">
+                    <span className="text-xs font-bold text-sky-400 flex items-center gap-1">
+                      <Users2 className="w-3.5 h-3.5" /> Shared With Me ({myQuizzes.shared.length})
+                    </span>
+                    <div className="space-y-2 max-h-48 overflow-y-auto">
+                      {myQuizzes.shared.map((cq) => (
+                        <button
+                          key={cq.id}
+                          onClick={() => handleSelectCloudQuiz(cq)}
+                          className={`w-full p-3 rounded-xl border text-left transition-all ${
+                            loadedQuizId === cq.id
+                              ? 'bg-sky-950/60 border-sky-500 text-white'
+                              : 'bg-slate-950/60 border-slate-800 text-slate-300'
+                          }`}
+                        >
+                          <div className="flex items-center gap-1.5 text-[10px] text-sky-400 font-mono font-bold">
+                            <span>{cq.category}</span>
+                            <span>•</span>
+                            <span>{cq.questions.length} Qs</span>
+                            <span>• Editor access</span>
+                          </div>
+                          <h4 className="font-bold text-xs text-white truncate">{cq.title}</h4>
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
@@ -542,18 +551,18 @@ export const QuizBuilderView: React.FC<QuizBuilderViewProps> = ({ setMode, curre
             {/* Built-in Presets */}
             <div className="space-y-2.5">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-400 block uppercase tracking-wider">
-                  Built-In Presets
-                </span>
-                <button
-                  onClick={handleSeedPresetsToCloud}
-                  disabled={isSavingCloud}
-                  className="px-2.5 py-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1 shadow-sm disabled:opacity-50"
-                  title="Save all preset quizzes into Firestore database"
-                >
-                  <Cloud className="w-3 h-3 text-amber-400" />
-                  <span>Save All to Firestore</span>
-                </button>
+                <span className="text-xs font-bold text-slate-400 block uppercase tracking-wider">Built-In Presets</span>
+                {currentUser && (
+                  <button
+                    onClick={handleSeedPresetsToCloud}
+                    disabled={isSavingCloud}
+                    className="px-2.5 py-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1 shadow-sm disabled:opacity-50"
+                    title="Save all preset quizzes into your account"
+                  >
+                    <Cloud className="w-3 h-3 text-amber-400" />
+                    <span>Save All to My Account</span>
+                  </button>
+                )}
               </div>
               {PRESET_QUIZZES.map((preset) => {
                 const isSelected = selectedPresetId === preset.id;
@@ -568,9 +577,7 @@ export const QuizBuilderView: React.FC<QuizBuilderViewProps> = ({ setMode, curre
                     }`}
                   >
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-blue-400 uppercase tracking-wider">
-                        {preset.category}
-                      </span>
+                      <span className="text-xs font-bold text-blue-400 uppercase tracking-wider">{preset.category}</span>
                       <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-400">
                         {preset.questions.length} Questions
                       </span>
@@ -586,8 +593,6 @@ export const QuizBuilderView: React.FC<QuizBuilderViewProps> = ({ setMode, curre
 
         {/* Right Column: Interactive Question Editor & List */}
         <div className="lg:col-span-7 space-y-6">
-          
-          {/* Question Form */}
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-5">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
@@ -610,9 +615,7 @@ export const QuizBuilderView: React.FC<QuizBuilderViewProps> = ({ setMode, curre
 
             <form onSubmit={handleSaveQuestion} className="space-y-4">
               <div>
-                <label className="text-xs font-semibold text-slate-400 block mb-1">
-                  Question Text
-                </label>
+                <label className="text-xs font-semibold text-slate-400 block mb-1">Question Text</label>
                 <textarea
                   rows={2}
                   required
@@ -623,7 +626,6 @@ export const QuizBuilderView: React.FC<QuizBuilderViewProps> = ({ setMode, curre
                 />
               </div>
 
-              {/* 4 Options Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {['A', 'B', 'C', 'D'].map((letter, idx) => {
                   const colors = [
@@ -635,9 +637,7 @@ export const QuizBuilderView: React.FC<QuizBuilderViewProps> = ({ setMode, curre
                   return (
                     <div key={letter} className="space-y-1">
                       <div className="flex items-center justify-between">
-                        <label className={`text-xs font-bold ${colors[idx]}`}>
-                          Option {letter}
-                        </label>
+                        <label className={`text-xs font-bold ${colors[idx]}`}>Option {letter}</label>
                         <button
                           type="button"
                           onClick={() => setQCorrect(idx)}
@@ -671,9 +671,7 @@ export const QuizBuilderView: React.FC<QuizBuilderViewProps> = ({ setMode, curre
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-semibold text-slate-400 block mb-1">
-                    Time Limit (Seconds)
-                  </label>
+                  <label className="text-xs font-semibold text-slate-400 block mb-1">Time Limit (Seconds)</label>
                   <select
                     value={qTimeLimit}
                     onChange={(e) => setQTimeLimit(Number(e.target.value))}
@@ -688,9 +686,7 @@ export const QuizBuilderView: React.FC<QuizBuilderViewProps> = ({ setMode, curre
                 </div>
 
                 <div>
-                  <label className="text-xs font-semibold text-slate-400 block mb-1">
-                    Explanation (Shown after answer)
-                  </label>
+                  <label className="text-xs font-semibold text-slate-400 block mb-1">Explanation (Shown after answer)</label>
                   <input
                     type="text"
                     value={qExplanation}
@@ -711,7 +707,6 @@ export const QuizBuilderView: React.FC<QuizBuilderViewProps> = ({ setMode, curre
             </form>
           </div>
 
-          {/* Current Question List */}
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
@@ -736,9 +731,7 @@ export const QuizBuilderView: React.FC<QuizBuilderViewProps> = ({ setMode, curre
                       </span>
                       <span className="text-slate-400 font-mono">{q.timeLimit || 30}s</span>
                     </div>
-                    <p className="text-xs font-semibold text-white leading-snug">
-                      {q.question}
-                    </p>
+                    <p className="text-xs font-semibold text-white leading-snug">{q.question}</p>
                     <p className="text-[11px] text-emerald-400 font-medium">
                       Correct Answer: {q.correctAnswerText || q.options[q.correctAnswer]}
                     </p>
@@ -764,113 +757,87 @@ export const QuizBuilderView: React.FC<QuizBuilderViewProps> = ({ setMode, curre
               ))}
             </div>
           </div>
-
         </div>
       </div>
 
-      {/* Creator Auth Modal */}
-      {showAuthModal && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl space-y-6">
-            <div className="text-center space-y-2">
-              <div className="inline-flex p-3 bg-blue-500/10 border border-blue-500/30 rounded-2xl text-blue-400 mb-1">
-                <ShieldCheck className="w-8 h-8" />
-              </div>
-              <h3 className="text-xl font-extrabold text-white">
-                {authMode === 'login' ? 'Creator Sign In' : 'Create Creator Account'}
-              </h3>
-              <p className="text-xs text-slate-400">
-                Log in to save custom quizzes directly to ByteeIT's Firebase Database!
-              </p>
-            </div>
+      <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
 
-            {authError && (
-              <div className="p-3 bg-red-950/80 border border-red-800 text-red-300 rounded-xl text-xs text-center font-medium">
-                {authError}
+      {/* Share Quiz Modal */}
+      {showShareModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
+                <Users2 className="w-4 h-4 text-sky-400" />
+                Share "{quizTitle}"
+              </h3>
+              <button onClick={() => setShowShareModal(false)} className="text-slate-400 hover:text-white p-1">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <p className="text-xs text-slate-400">
+              Anyone you invite by email gets full editor access -- they can view, edit, and host this quiz once they sign in with that email.
+            </p>
+
+            {shareError && (
+              <div className="p-2.5 bg-red-950/80 border border-red-800 text-red-300 rounded-lg text-xs font-medium">
+                {shareError}
               </div>
             )}
 
-            {/* Google Fast Sign-In */}
-            <button
-              onClick={handleGoogleAuth}
-              disabled={isSubmittingAuth}
-              className="w-full py-3 bg-white hover:bg-slate-100 text-slate-900 font-bold rounded-xl text-xs flex items-center justify-center gap-2 shadow-lg transition-all disabled:opacity-50"
-            >
-              <svg className="w-4 h-4" viewBox="0 0 24 24">
-                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                <path fill="#FBBC05" d="M5.84 14.1c-.22-.66-.35-1.36-.35-2.1s.13-1.44.35-2.1V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.62z"/>
-                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
-              </svg>
-              <span>Continue with Google</span>
-            </button>
-
-            <div className="flex items-center gap-3 my-2">
-              <div className="h-px bg-slate-800 flex-1" />
-              <span className="text-[11px] text-slate-500 font-bold uppercase">or email</span>
-              <div className="h-px bg-slate-800 flex-1" />
-            </div>
-
-            <form onSubmit={handleEmailAuthSubmit} className="space-y-3">
-              {authMode === 'register' && (
-                <div>
-                  <label className="text-xs font-semibold text-slate-400 block mb-1">Display Name</label>
-                  <input
-                    type="text"
-                    required
-                    value={authName}
-                    onChange={(e) => setAuthName(e.target.value)}
-                    placeholder="e.g. Nawab Khan"
-                    className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-blue-500"
-                  />
-                </div>
-              )}
-
-              <div>
-                <label className="text-xs font-semibold text-slate-400 block mb-1">Email Address</label>
+            <form onSubmit={handleShare} className="flex items-center gap-2">
+              <div className="relative flex-1">
+                <Mail className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
                 <input
                   type="email"
                   required
-                  value={authEmail}
-                  onChange={(e) => setAuthEmail(e.target.value)}
-                  placeholder="creator@byteeit.com"
-                  className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-blue-500"
+                  value={shareEmail}
+                  onChange={(e) => setShareEmail(e.target.value)}
+                  placeholder="teammate@example.com"
+                  className="w-full pl-9 pr-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-sky-500"
                 />
               </div>
-
-              <div>
-                <label className="text-xs font-semibold text-slate-400 block mb-1">Password</label>
-                <input
-                  type="password"
-                  required
-                  value={authPass}
-                  onChange={(e) => setAuthPass(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-blue-500"
-                />
-              </div>
-
               <button
                 type="submit"
-                disabled={isSubmittingAuth}
-                className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl text-xs transition-colors shadow-md disabled:opacity-50"
+                disabled={isSharing}
+                className="px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold rounded-xl disabled:opacity-50 shrink-0"
               >
-                {authMode === 'login' ? 'Sign In' : 'Create Account'}
+                {isSharing ? 'Sharing…' : 'Invite'}
               </button>
             </form>
 
-            <div className="flex items-center justify-between text-xs text-slate-400 pt-2 border-t border-slate-800">
+            <div className="space-y-2">
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                People with access ({collaborators.length})
+              </span>
+              {collaborators.length === 0 ? (
+                <p className="text-xs text-slate-500 italic">Not shared with anyone yet.</p>
+              ) : (
+                <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                  {collaborators.map((c) => (
+                    <div
+                      key={c.id}
+                      className="flex items-center justify-between bg-slate-950 border border-slate-800 rounded-lg px-3 py-2"
+                    >
+                      <span className="text-xs text-slate-200 truncate">{c.invitedEmail}</span>
+                      <button
+                        onClick={() => handleRemoveCollaborator(c.id)}
+                        className="text-[11px] text-red-400 hover:text-red-300 font-bold shrink-0 ml-2"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="pt-2 flex justify-end">
               <button
-                onClick={() => setAuthMode(authMode === 'login' ? 'register' : 'login')}
-                className="hover:text-blue-400 font-semibold"
+                onClick={() => setShowShareModal(false)}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl"
               >
-                {authMode === 'login' ? 'Need an account? Register' : 'Already have an account? Sign In'}
-              </button>
-              <button
-                onClick={() => setShowAuthModal(false)}
-                className="hover:text-white"
-              >
-                Close
+                Done
               </button>
             </div>
           </div>
@@ -912,4 +879,3 @@ export const QuizBuilderView: React.FC<QuizBuilderViewProps> = ({ setMode, curre
     </div>
   );
 };
-

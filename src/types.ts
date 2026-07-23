@@ -34,36 +34,4 @@ export interface Player {
 
 export type QuizStatus = 'lobby' | 'question' | 'revealed' | 'leaderboard' | 'finished';
 
-export interface RoomState {
-  roomCode: string;
-  quizTitle?: string;
-  hostName?: string;
-  hostEmail?: string;
-  isServerConnected?: boolean;
-  status: QuizStatus;
-  currentQuestionIndex: number;
-  activeSessionFilter: number | 'all'; // 1, 2, 3, or 'all'
-  timerRemaining: number;
-  timeLimit: number;
-  players: Player[];
-  questionAnswers: {
-    [questionId: number]: {
-      [playerId: string]: {
-        optionIndex: number;
-        timestamp: number;
-        pointsEarned: number;
-        isCorrect: boolean;
-      };
-    };
-  };
-  customQuestions?: Question[];
-}
-
 export type ViewMode = 'host' | 'player' | 'solo' | 'export' | 'guide' | 'builder';
-
-export interface AnswerDistribution {
-  optionIndex: number;
-  count: number;
-  percentage: number;
-  isCorrect: boolean;
-}
