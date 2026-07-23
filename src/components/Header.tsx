@@ -90,7 +90,7 @@ export const Header: React.FC<HeaderProps> = ({
               src={byteeitLogo}
               alt="ByteeIT"
               referrerPolicy="no-referrer"
-              className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl object-cover border border-sky-500/30 shadow-md shadow-sky-500/10"
+              className="h-8 sm:h-10 w-auto max-w-full shrink-0 rounded-xl object-contain border border-sky-500/30 shadow-md shadow-sky-500/10"
             />
             <div className="min-w-0">
               <div className="flex items-center gap-2">
@@ -270,7 +270,7 @@ export const Header: React.FC<HeaderProps> = ({
                   src={byteeitLogo}
                   alt="ByteeIT Logo"
                   referrerPolicy="no-referrer"
-                  className="w-8 h-8 rounded-lg object-cover"
+                  className="h-8 w-auto max-w-full shrink-0 rounded-lg object-contain"
                 />
                 <div>
                   <h3 className="text-lg font-bold text-white">Share Live Quiz App</h3>

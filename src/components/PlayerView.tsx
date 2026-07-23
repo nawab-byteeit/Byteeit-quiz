@@ -178,16 +178,13 @@ export const PlayerView: React.FC = () => {
     return (
       <div className="max-w-md mx-auto px-4 py-12">
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-2xl text-center space-y-6">
-          <div className="relative inline-block">
+          <div className="inline-block">
             <img
               src={byteeitLogo}
               alt="ByteeIT Logo"
               referrerPolicy="no-referrer"
-              className="w-20 h-20 rounded-2xl object-cover border-2 border-blue-500/50 shadow-xl shadow-blue-500/20 mx-auto"
+              className="h-12 sm:h-16 w-auto max-w-full rounded-2xl object-contain border-2 border-blue-500/50 shadow-xl shadow-blue-500/20 mx-auto"
             />
-            <span className="absolute -bottom-1 -right-1 bg-blue-600 text-[10px] font-black px-1.5 py-0.5 rounded text-white border border-slate-900">
-              IT
-            </span>
           </div>
 
           <div>

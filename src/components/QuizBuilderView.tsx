@@ -338,7 +338,7 @@ export const QuizBuilderView: React.FC<QuizBuilderViewProps> = ({ setMode, curre
             src={byteeitLogo}
             alt="ByteeIT Logo"
             referrerPolicy="no-referrer"
-            className="w-14 h-14 rounded-2xl object-cover border-2 border-blue-500/50 shadow-xl shadow-blue-500/20"
+            className="h-11 sm:h-14 w-auto max-w-full rounded-2xl object-contain border-2 border-blue-500/50 shadow-xl shadow-blue-500/20 shrink-0"
           />
           <div>
             <div className="flex items-center gap-2">
