@@ -1,6 +1,0 @@
-{
-  "name": "Google AI & Cloud Master Quiz",
-  "description": "Kahoot & Mentimeter styled interactive quiz application with real-time room synchronization, presenter live charts, Kahoot/Mentimeter draft export, and comprehensive Google Cloud & Gemini study modules.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}
