@@ -31,6 +31,7 @@ export const HostView: React.FC<HostViewProps> = ({ currentUser, setMode, onActi
   const [copiedLink, setCopiedLink] = useState(false);
   const [timerRemaining, setTimerRemaining] = useState(0);
   const revealedForQuestion = useRef<number | null>(null);
+  const unsubscribeRef = useRef<(() => void) | null>(null);
 
   // Resolve which room (if any) this authenticated host is currently running.
   useEffect(() => {
@@ -40,7 +41,6 @@ export const HostView: React.FC<HostViewProps> = ({ currentUser, setMode, onActi
       return;
     }
 
-    let unsubscribe: (() => void) | null = null;
     let cancelled = false;
 
     const resume = async () => {
@@ -54,12 +54,17 @@ export const HostView: React.FC<HostViewProps> = ({ currentUser, setMode, onActi
       }
       try {
         const roomId = await findRoomIdByCode(storedCode);
+        if (cancelled) return;
         if (!roomId) {
           clearActiveHostRoomCode();
-          if (!cancelled) setLoading(false);
+          setLoading(false);
           return;
         }
-        unsubscribe = subscribeToRoom(
+        // Guard against React StrictMode's mount/cleanup/remount cycle: if an
+        // earlier invocation's subscription is still live, tear it down first
+        // so we never register two Realtime channels on the same room topic.
+        unsubscribeRef.current?.();
+        unsubscribeRef.current = subscribeToRoom(
           roomId,
           (liveRoom) => {
             if (cancelled) return;
@@ -92,7 +97,8 @@ export const HostView: React.FC<HostViewProps> = ({ currentUser, setMode, onActi
 
     return () => {
       cancelled = true;
-      if (unsubscribe) unsubscribe();
+      unsubscribeRef.current?.();
+      unsubscribeRef.current = null;
     };
   }, [currentUser?.id]);
 
