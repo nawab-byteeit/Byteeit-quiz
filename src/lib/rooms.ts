@@ -324,6 +324,35 @@ export async function submitAnswer(params: {
 }
 
 // --- Local persistence: player sessions (per room) & the host's last-active room ---
+//
+// localStorage can throw (not just return null) in real-world mobile contexts --
+// in-app browsers (e.g. WhatsApp/Instagram webviews), private browsing, or strict
+// privacy settings all commonly deny storage access entirely. Every call is wrapped
+// so a blocked browser degrades to "no persistence" instead of breaking the flow.
+
+function safeGetItem(key: string): string | null {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function safeSetItem(key: string, value: string): void {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // ignore -- session just won't survive a refresh in this browser
+  }
+}
+
+function safeRemoveItem(key: string): void {
+  try {
+    localStorage.removeItem(key);
+  } catch {
+    // ignore
+  }
+}
 
 const PLAYER_SESSION_PREFIX = 'byteeit_player_session_';
 const HOST_ROOM_KEY = 'byteeit_active_host_room';
@@ -336,30 +365,31 @@ export interface StoredPlayerSession {
 }
 
 export function savePlayerSession(session: StoredPlayerSession) {
-  localStorage.setItem(PLAYER_SESSION_PREFIX + session.roomCode.toUpperCase(), JSON.stringify(session));
+  safeSetItem(PLAYER_SESSION_PREFIX + session.roomCode.toUpperCase(), JSON.stringify(session));
 }
 
 export function loadPlayerSession(roomCode: string): StoredPlayerSession | null {
+  const raw = safeGetItem(PLAYER_SESSION_PREFIX + roomCode.trim().toUpperCase());
+  if (!raw) return null;
   try {
-    const raw = localStorage.getItem(PLAYER_SESSION_PREFIX + roomCode.trim().toUpperCase());
-    return raw ? JSON.parse(raw) : null;
+    return JSON.parse(raw);
   } catch {
     return null;
   }
 }
 
 export function clearPlayerSession(roomCode: string) {
-  localStorage.removeItem(PLAYER_SESSION_PREFIX + roomCode.trim().toUpperCase());
+  safeRemoveItem(PLAYER_SESSION_PREFIX + roomCode.trim().toUpperCase());
 }
 
 export function saveActiveHostRoomCode(roomCode: string) {
-  localStorage.setItem(HOST_ROOM_KEY, roomCode.toUpperCase());
+  safeSetItem(HOST_ROOM_KEY, roomCode.toUpperCase());
 }
 
 export function loadActiveHostRoomCode(): string | null {
-  return localStorage.getItem(HOST_ROOM_KEY);
+  return safeGetItem(HOST_ROOM_KEY);
 }
 
 export function clearActiveHostRoomCode() {
-  localStorage.removeItem(HOST_ROOM_KEY);
+  safeRemoveItem(HOST_ROOM_KEY);
 }

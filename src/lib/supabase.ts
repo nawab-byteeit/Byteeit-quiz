@@ -10,7 +10,41 @@ if (!supabaseUrl || !supabaseAnonKey) {
   );
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// In-app browsers (WhatsApp/Instagram webviews), private browsing, and strict
+// privacy settings can make `localStorage` throw on plain property access rather
+// than just returning null. Supabase persists the auth session to storage on
+// every request, so an unguarded adapter can take the whole app down. This falls
+// back to an in-memory store (session just won't survive a refresh there).
+const memoryStore = new Map<string, string>();
+const safeStorage = {
+  getItem(key: string) {
+    try {
+      return localStorage.getItem(key) ?? memoryStore.get(key) ?? null;
+    } catch {
+      return memoryStore.get(key) ?? null;
+    }
+  },
+  setItem(key: string, value: string) {
+    memoryStore.set(key, value);
+    try {
+      localStorage.setItem(key, value);
+    } catch {
+      // ignore -- in-memory fallback above already covers this tab's session
+    }
+  },
+  removeItem(key: string) {
+    memoryStore.delete(key);
+    try {
+      localStorage.removeItem(key);
+    } catch {
+      // ignore
+    }
+  }
+};
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: { storage: safeStorage }
+});
 
 export type { User };
 
