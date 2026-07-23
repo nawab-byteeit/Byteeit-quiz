@@ -260,8 +260,9 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* Share Modal Dialog */}
       {showShareModal && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-5 animate-scale-up">
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm overflow-y-auto p-4">
+          <div className="min-h-full flex items-center justify-center">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-5 animate-scale-up my-8">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <div className="flex items-center gap-3">
                 <img
@@ -396,6 +397,7 @@ export const Header: React.FC<HeaderProps> = ({
                 Done
               </button>
             </div>
+          </div>
           </div>
         </div>
       )}

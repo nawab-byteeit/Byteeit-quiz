@@ -764,8 +764,9 @@ export const QuizBuilderView: React.FC<QuizBuilderViewProps> = ({ setMode, curre
 
       {/* Share Quiz Modal */}
       {showShareModal && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4">
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm overflow-y-auto p-4">
+          <div className="min-h-full flex items-center justify-center">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 my-8">
             <div className="flex items-center justify-between">
               <h3 className="text-base font-bold text-white flex items-center gap-2">
                 <Users2 className="w-4 h-4 text-sky-400" />
@@ -841,13 +842,15 @@ export const QuizBuilderView: React.FC<QuizBuilderViewProps> = ({ setMode, curre
               </button>
             </div>
           </div>
+          </div>
         </div>
       )}
 
       {/* JSON Import Modal */}
       {showJsonModal && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4">
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm overflow-y-auto p-4">
+          <div className="min-h-full flex items-center justify-center">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 my-8">
             <h3 className="text-base font-bold text-white">Import Custom Questions via JSON</h3>
             <p className="text-xs text-slate-400">
               Paste an array of question objects containing `question`, `options`, `correctAnswer`, `timeLimit`, and `explanation`.
@@ -873,6 +876,7 @@ export const QuizBuilderView: React.FC<QuizBuilderViewProps> = ({ setMode, curre
                 Import Questions
               </button>
             </div>
+          </div>
           </div>
         </div>
       )}
