@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Question, ViewMode } from '../types';
 import { PRESET_QUIZZES } from '../data/presetQuizzes';
 import { soundEffects } from '../lib/audio';
@@ -763,7 +764,7 @@ export const QuizBuilderView: React.FC<QuizBuilderViewProps> = ({ setMode, curre
       <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
 
       {/* Share Quiz Modal */}
-      {showShareModal && (
+      {showShareModal && createPortal(
         <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm overflow-y-auto p-4">
           <div className="min-h-full flex items-center justify-center">
           <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 my-8">
@@ -843,11 +844,12 @@ export const QuizBuilderView: React.FC<QuizBuilderViewProps> = ({ setMode, curre
             </div>
           </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* JSON Import Modal */}
-      {showJsonModal && (
+      {showJsonModal && createPortal(
         <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm overflow-y-auto p-4">
           <div className="min-h-full flex items-center justify-center">
           <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 my-8">
@@ -878,7 +880,8 @@ export const QuizBuilderView: React.FC<QuizBuilderViewProps> = ({ setMode, curre
             </div>
           </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

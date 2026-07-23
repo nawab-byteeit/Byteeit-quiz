@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { signInWithGoogle, signInWithEmail, signUpWithEmail, type User } from '../lib/supabase';
 import { soundEffects } from '../lib/audio';
 import { ShieldCheck, LogIn, Mail, Lock, User as UserIcon, X } from 'lucide-react';
@@ -71,7 +72,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
     }
   };
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm overflow-y-auto p-4">
       <div className="min-h-full flex items-center justify-center">
       <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl space-y-6 relative animate-scale-up my-8">
@@ -208,6 +209,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
         </div>
       </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
