@@ -1,0 +1,24 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Users collection
+    match /users/{userId} {
+      allow read: if true;
+      allow create, update: if request.auth != null && request.auth.uid == userId;
+      allow delete: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Quizzes collection
+    match /quizzes/{quizId} {
+      allow read: if true;
+      allow create: if request.auth != null && request.resource.data.creatorId == request.auth.uid;
+      allow update, delete: if request.auth != null && resource.data.creatorId == request.auth.uid;
+    }
+
+    // Rooms collection (Live game state)
+    match /rooms/{roomId} {
+      allow read, write: if true;
+    }
+  }
+}

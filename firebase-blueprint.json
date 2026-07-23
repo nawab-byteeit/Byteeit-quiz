@@ -1,0 +1,97 @@
+{
+  "entities": {
+    "users": {
+      "title": "Users",
+      "description": "Registered quiz creators and hosts",
+      "properties": {
+        "email": {
+          "type": "string",
+          "description": "User email address"
+        },
+        "displayName": {
+          "type": "string",
+          "description": "Creator display name"
+        },
+        "photoURL": {
+          "type": "string",
+          "description": "Profile picture URL"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "ISO timestamp when account was created"
+        }
+      },
+      "required": ["email", "displayName", "createdAt"]
+    },
+    "quizzes": {
+      "title": "Quizzes",
+      "description": "Custom quiz templates created by registered users",
+      "properties": {
+        "creatorId": {
+          "type": "string",
+          "description": "UID of the creator user"
+        },
+        "creatorName": {
+          "type": "string",
+          "description": "Display name of the creator"
+        },
+        "title": {
+          "type": "string",
+          "description": "Title of the quiz"
+        },
+        "description": {
+          "type": "string",
+          "description": "Short summary or description"
+        },
+        "category": {
+          "type": "string",
+          "description": "Topic or category"
+        },
+        "questions": {
+          "type": "array",
+          "description": "Array of question objects with question, options, correctAnswer, etc."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "ISO timestamp when created"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "ISO timestamp when updated"
+        }
+      },
+      "required": ["creatorId", "title", "questions", "createdAt"]
+    },
+    "rooms": {
+      "title": "Rooms",
+      "description": "Active live quiz rooms hosted on ByteeIT Platform",
+      "properties": {
+        "roomCode": {
+          "type": "string",
+          "description": "Game PIN code"
+        },
+        "hostId": {
+          "type": "string",
+          "description": "UID of the hosting user"
+        },
+        "hostName": {
+          "type": "string",
+          "description": "Host display name"
+        },
+        "quizTitle": {
+          "type": "string",
+          "description": "Quiz title for this room"
+        },
+        "status": {
+          "type": "string",
+          "description": "Lobby, question, revealed, leaderboard, or finished"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "ISO timestamp when created"
+        }
+      },
+      "required": ["roomCode", "quizTitle", "status", "createdAt"]
+    }
+  }
+}
