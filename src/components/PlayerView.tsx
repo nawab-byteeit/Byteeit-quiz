@@ -220,11 +220,11 @@ export const PlayerView: React.FC = () => {
                 </label>
                 <input
                   type="text"
-                  placeholder="Enter Nickname (e.g. CloudMaster)"
+                  placeholder="Enter Nickname"
                   value={nickname}
                   onChange={(e) => setNickname(e.target.value)}
                   maxLength={20}
-                  className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 text-center font-bold text-lg"
+                  className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 text-center font-bold text-base sm:text-lg"
                 />
               </div>
             </div>

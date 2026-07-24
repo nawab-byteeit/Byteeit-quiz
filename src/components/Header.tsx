@@ -83,9 +83,9 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <header className="bg-slate-900 border-b border-slate-800 text-white sticky top-0 z-50 backdrop-blur-md bg-opacity-95">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
+        <div className="flex items-center justify-between h-16 gap-3">
           {/* Logo & Title */}
-          <div className="flex items-center gap-3 shrink-0">
+          <div className="flex items-center gap-3 min-w-0">
             <img
               src={byteeitLogo}
               alt="ByteeIT"
@@ -123,32 +123,8 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
           </div>
 
-          {/* Mode Switcher Nav */}
-          <nav className="hidden lg:flex items-center gap-1 bg-slate-950/80 p-1 rounded-xl border border-slate-800">
-            {modes.map((mode) => {
-              const isActive = currentMode === mode.id;
-              return (
-                <button
-                  key={mode.id}
-                  onClick={() => {
-                    soundEffects.playClick();
-                    setMode(mode.id);
-                  }}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 ${
-                    isActive
-                      ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30 font-bold'
-                      : 'text-slate-300 hover:text-white hover:bg-slate-800/80'
-                  }`}
-                >
-                  {mode.icon}
-                  <span>{mode.label}</span>
-                </button>
-              );
-            })}
-          </nav>
-
           {/* Controls: Creator Login, Share Link, Room Code & Sound */}
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             {/* Creator Admin Sign In or User Badge */}
             {currentUser ? (
               <div className="flex items-center gap-1.5 bg-emerald-950/60 border border-emerald-800/60 text-emerald-300 px-2.5 py-1.5 rounded-xl text-xs font-semibold">
@@ -230,8 +206,8 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
 
-        {/* Mobile / Tablet Nav bar */}
-        <div className="lg:hidden flex items-center justify-start sm:justify-center py-2 border-t border-slate-800/80 overflow-x-auto gap-1.5 px-2">
+        {/* Mode Switcher Nav — single scrollable row at every breakpoint */}
+        <nav className="flex items-center justify-start lg:justify-center gap-1.5 py-2 border-t border-slate-800/80 overflow-x-auto scroll-smooth [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {modes.map((mode) => {
             const isActive = currentMode === mode.id;
             return (
@@ -241,8 +217,10 @@ export const Header: React.FC<HeaderProps> = ({
                   soundEffects.playClick();
                   setMode(mode.id);
                 }}
-                className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium whitespace-nowrap ${
-                  isActive ? 'bg-blue-600 text-white font-bold' : 'text-slate-400 hover:text-slate-200'
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap shrink-0 transition-all duration-150 ${
+                  isActive
+                    ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30 font-bold'
+                    : 'text-slate-300 hover:text-white hover:bg-slate-800/80'
                 }`}
               >
                 {mode.icon}
@@ -250,7 +228,7 @@ export const Header: React.FC<HeaderProps> = ({
               </button>
             );
           })}
-        </div>
+        </nav>
       </div>
 
       {/* Creator Auth Modal */}

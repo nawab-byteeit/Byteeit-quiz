@@ -219,20 +219,20 @@ export const HostView: React.FC<HostViewProps> = ({ currentUser, setMode, onActi
     const joinUrl = `${window.location.origin}/?pin=${room.roomCode}`;
     return (
       <div className="max-w-5xl mx-auto px-4 py-8 space-y-6">
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-2xl text-center space-y-8 relative overflow-hidden">
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 sm:p-8 shadow-2xl text-center space-y-8 relative overflow-hidden">
           <div className="absolute -top-24 -right-24 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl pointer-events-none" />
           <div className="absolute -bottom-24 -left-24 w-96 h-96 bg-indigo-600/10 rounded-full blur-3xl pointer-events-none" />
 
           <div>
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-slate-950/80 border border-slate-800 rounded-full text-xs font-semibold text-slate-300 mb-3 shadow-sm">
+            <div className="inline-flex flex-wrap items-center justify-center gap-x-2 gap-y-1 px-3.5 py-1.5 max-w-full bg-slate-950/80 border border-slate-800 rounded-2xl sm:rounded-full text-xs font-semibold text-slate-300 mb-3 shadow-sm">
               <span className="text-sky-400 font-bold">Presenter / Host Mode</span>
-              <span className="text-slate-600">•</span>
-              <span className="text-emerald-400 font-bold flex items-center gap-1.5">
-                <span className="relative flex h-2 w-2">
+              <span className="text-slate-600 hidden sm:inline">•</span>
+              <span className="text-emerald-400 font-bold flex items-center gap-1.5 max-w-full">
+                <span className="relative flex h-2 w-2 shrink-0">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                 </span>
-                Host: {room.hostName || getDisplayName(currentUser)}
+                <span className="truncate max-w-[180px] sm:max-w-none">Host: {room.hostName || getDisplayName(currentUser)}</span>
               </span>
             </div>
             <h2 className="text-3xl sm:text-4xl font-extrabold text-white mt-1">{room.quizTitle}</h2>
@@ -242,13 +242,13 @@ export const HostView: React.FC<HostViewProps> = ({ currentUser, setMode, onActi
           </div>
 
           {/* Room PIN & QR Code Display */}
-          <div className="bg-slate-950/90 border border-slate-800 rounded-2xl p-6 max-w-2xl mx-auto shadow-2xl flex flex-col md:flex-row items-center justify-between gap-6">
-            <div className="space-y-2 text-center md:text-left flex-1">
+          <div className="bg-slate-950/90 border border-slate-800 rounded-2xl p-4 sm:p-6 max-w-2xl mx-auto shadow-2xl flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="space-y-2 text-center md:text-left flex-1 min-w-0">
               <p className="text-slate-400 text-xs font-bold uppercase tracking-widest flex items-center justify-center md:justify-start gap-1.5">
                 <Sparkles className="w-4 h-4 text-amber-400" />
                 Join Game PIN
               </p>
-              <div className="text-5xl font-black font-mono text-amber-400 tracking-widest my-1 select-all">
+              <div className="text-4xl sm:text-5xl font-black font-mono text-amber-400 tracking-wider sm:tracking-widest my-1 select-all">
                 {room.roomCode}
               </div>
               <p className="text-slate-400 text-xs leading-relaxed">
