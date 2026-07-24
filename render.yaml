@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: byteeit-quiz
+    env: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: free
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # Public Supabase project ref + anon key (safe to expose; access is
+      # enforced by Postgres RLS). Render passes these to the Dockerfile as
+      # build args because it declares matching ARG names.
+      - key: VITE_SUPABASE_URL
+        value: https://drxfqwqnrtgtbbzkhgnt.supabase.co
+      - key: VITE_SUPABASE_ANON_KEY
+        value: sb_publishable_OIHTh86bnsPK37lgM6_Exg_jsYilULn

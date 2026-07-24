@@ -29,6 +29,6 @@ RUN npm install --omit=dev
 
 COPY --from=builder /app/dist ./dist
 
-# Cloud Run injects PORT at runtime; server.ts already binds to it on 0.0.0.0.
+# Render/Cloud Run inject PORT at runtime; server.ts already binds to it on 0.0.0.0.
 EXPOSE 8080
 CMD ["node", "dist/server.cjs"]
