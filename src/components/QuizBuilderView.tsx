@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Question, ViewMode } from '../types';
 import { PRESET_QUIZZES } from '../data/presetQuizzes';
 import { soundEffects } from '../lib/audio';
 import { type User, getDisplayName } from '../lib/supabase';
+import { extractPdfText } from '../lib/pdfUtils';
+import { generateQuizFromText } from '../lib/aiQuizGen';
 import {
   StoredQuiz,
   Collaborator,
@@ -21,7 +23,7 @@ import { AuthModal } from './AuthModal';
 import {
   Plus, Trash2, Edit3, CheckCircle, Sparkles, Tv, Copy, Upload,
   Layers, ArrowRight, ShieldCheck, Database, LogIn, Users2, Cloud,
-  RefreshCw, Mail, X
+  RefreshCw, Mail, X, Wand2, FileText, FileUp, Loader2, PartyPopper
 } from 'lucide-react';
 import byteeitLogo from '../assets/images/byteeit_logo_1784809227570.jpg';
 
@@ -60,6 +62,17 @@ export const QuizBuilderView: React.FC<QuizBuilderViewProps> = ({ setMode, curre
   const [showJsonModal, setShowJsonModal] = useState(false);
   const [isSavingCloud, setIsSavingCloud] = useState(false);
   const [isLaunching, setIsLaunching] = useState(false);
+
+  // AI Quiz Generator (paste text or upload a PDF, Gemini fills in the questions)
+  const [sourceText, setSourceText] = useState('');
+  const [pdfFileName, setPdfFileName] = useState('');
+  const [isExtractingPdf, setIsExtractingPdf] = useState(false);
+  const [aiNumQuestions, setAiNumQuestions] = useState(10);
+  const [isGeneratingQuiz, setIsGeneratingQuiz] = useState(false);
+  const [generationError, setGenerationError] = useState('');
+  const [generationSuccess, setGenerationSuccess] = useState('');
+  const pdfInputRef = useRef<HTMLInputElement>(null);
+  const questionsListRef = useRef<HTMLDivElement>(null);
 
   // Sharing
   const [showShareModal, setShowShareModal] = useState(false);
@@ -311,6 +324,56 @@ export const QuizBuilderView: React.FC<QuizBuilderViewProps> = ({ setMode, curre
     }
   };
 
+  // Handle a PDF upload: extract its text into the source textarea for review/editing
+  const handlePdfUpload = async (file: File) => {
+    setGenerationError('');
+    setGenerationSuccess('');
+    setPdfFileName(file.name);
+    setIsExtractingPdf(true);
+    try {
+      const extracted = await extractPdfText(file);
+      if (!extracted || extracted.length < 20) {
+        setGenerationError('Could not find readable text in that PDF. Try a different file or paste the content instead.');
+        return;
+      }
+      setSourceText(extracted);
+      soundEffects.playClick();
+    } catch (err: any) {
+      setGenerationError(err.message || 'Failed to read that PDF file.');
+    } finally {
+      setIsExtractingPdf(false);
+    }
+  };
+
+  // Ask Gemini to turn the pasted / extracted source text into a ready-to-review quiz
+  const handleGenerateQuiz = async () => {
+    if (sourceText.trim().length < 40) {
+      setGenerationError('Paste a bit more content (a few sentences) so the AI has enough to work with.');
+      return;
+    }
+
+    soundEffects.playClick();
+    setGenerationError('');
+    setGenerationSuccess('');
+    setIsGeneratingQuiz(true);
+    try {
+      const result = await generateQuizFromText(sourceText, aiNumQuestions);
+      setQuestions(result.questions);
+      setQuizTitle(result.suggestedTitle || quizTitle);
+      setQuizCategory(result.suggestedCategory || quizCategory);
+      setLoadedQuizId(null);
+      setSelectedPresetId('');
+      setEditingQuestionIdx(null);
+      soundEffects.playFanfare();
+      setGenerationSuccess(`Generated ${result.questions.length} questions! Review them below, edit anything that needs a tweak, then Save or Launch.`);
+      questionsListRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } catch (err: any) {
+      setGenerationError(err.message || 'Quiz generation failed. Please try again.');
+    } finally {
+      setIsGeneratingQuiz(false);
+    }
+  };
+
   // Import JSON Questions
   const handleImportJson = () => {
     try {
@@ -380,6 +443,103 @@ export const QuizBuilderView: React.FC<QuizBuilderViewProps> = ({ setMode, curre
             <ArrowRight className="w-4 h-4" />
           </button>
         </div>
+      </div>
+
+      {/* AI Quiz Generator: paste text or upload a PDF, Gemini writes the quiz for you */}
+      <div className="bg-white border-4 border-grape/30 rounded-[2rem] p-6 sm:p-8 shadow-xl space-y-5 relative overflow-hidden">
+        <div className="absolute -top-20 -right-20 w-72 h-72 bg-grape/10 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 bg-grape/15 border-2 border-grape/30 rounded-2xl flex items-center justify-center text-grape-dark shrink-0">
+            <Wand2 className="w-6 h-6" />
+          </div>
+          <div>
+            <h3 className="text-xl font-display font-extrabold text-ink">✨ Instant Quiz Builder</h3>
+            <p className="text-ink-soft text-xs sm:text-sm font-medium">
+              Paste your notes or upload a PDF -- AI writes the questions, you just review and go!
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-5">
+          <div className="space-y-2">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <label className="text-xs font-bold text-ink-soft uppercase tracking-wider flex items-center gap-1.5">
+                <FileText className="w-3.5 h-3.5" /> Paste content, or upload a PDF below
+              </label>
+              <input
+                ref={pdfInputRef}
+                type="file"
+                accept="application/pdf"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handlePdfUpload(file);
+                  e.target.value = '';
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => pdfInputRef.current?.click()}
+                disabled={isExtractingPdf}
+                className="btn-pop px-3 py-1.5 bg-white hover:bg-cream text-grape-dark border-2 border-b-4 border-grape/30 rounded-xl text-xs font-bold flex items-center gap-1.5 disabled:opacity-50"
+              >
+                {isExtractingPdf ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileUp className="w-3.5 h-3.5" />}
+                <span>{isExtractingPdf ? 'Reading PDF…' : pdfFileName ? `📄 ${pdfFileName}` : 'Upload PDF'}</span>
+              </button>
+            </div>
+            <textarea
+              rows={6}
+              value={sourceText}
+              onChange={(e) => setSourceText(e.target.value)}
+              placeholder="Paste your notes, article, slide text, or training material here... (or upload a PDF and we'll drop the text in for you)"
+              className="w-full px-4 py-3 bg-cream border-2 border-ink/10 rounded-2xl text-ink text-sm focus:outline-none focus:border-grape font-medium resize-y"
+            />
+          </div>
+
+          <div className="flex flex-col gap-2 lg:w-48">
+            <label className="text-xs font-bold text-ink-soft uppercase tracking-wider"># of Questions</label>
+            <select
+              value={aiNumQuestions}
+              onChange={(e) => setAiNumQuestions(Number(e.target.value))}
+              className="px-3 py-2.5 bg-cream border-2 border-ink/10 rounded-2xl text-sm text-ink font-bold focus:outline-none"
+            >
+              {[5, 10, 15, 20].map((n) => (
+                <option key={n} value={n}>{n} Questions</option>
+              ))}
+            </select>
+
+            <button
+              onClick={handleGenerateQuiz}
+              disabled={isGeneratingQuiz || isExtractingPdf}
+              className="btn-pop mt-auto px-4 py-3.5 bg-grape border-2 border-b-4 border-grape-dark hover:brightness-105 disabled:opacity-50 text-white font-display font-extrabold rounded-2xl shadow-md flex items-center justify-center gap-2 text-sm"
+            >
+              {isGeneratingQuiz ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Thinking…</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4" />
+                  <span>Generate Quiz</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+
+        {generationError && (
+          <div className="p-3 bg-coral/10 border-2 border-coral/40 text-coral-dark rounded-2xl text-xs font-bold">
+            {generationError}
+          </div>
+        )}
+        {generationSuccess && (
+          <div className="p-3 bg-grass/10 border-2 border-grass/40 text-grass-dark rounded-2xl text-xs font-bold flex items-center gap-2">
+            <PartyPopper className="w-4 h-4 shrink-0" />
+            <span>{generationSuccess}</span>
+          </div>
+        )}
       </div>
 
       {/* Main Grid */}
@@ -709,7 +869,7 @@ export const QuizBuilderView: React.FC<QuizBuilderViewProps> = ({ setMode, curre
             </form>
           </div>
 
-          <div className="bg-white border-4 border-ink/10 rounded-[2rem] p-6 shadow-xl space-y-4">
+          <div ref={questionsListRef} className="bg-white border-4 border-ink/10 rounded-[2rem] p-6 shadow-xl space-y-4 scroll-mt-4">
             <div className="flex items-center justify-between border-b-2 border-ink/10 pb-3">
               <h3 className="text-sm font-display font-bold text-ink uppercase tracking-wider flex items-center gap-2">
                 <CheckCircle className="w-4 h-4 text-sky-dark" />

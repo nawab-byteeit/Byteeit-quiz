@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(echo \"exit:$?\")"
+      "Bash(echo \"exit:$?\")",
+      "Bash(curl -s -X POST http://localhost:3000/api/generate-quiz -H 'Content-Type: application/json' -d '{\"text\":\"Photosynthesis is the process by which green plants, algae, and some bacteria convert light energy, usually from the sun, into chemical energy stored in glucose. This process occurs primarily in the chloroplasts of plant cells, using a green pigment called chlorophyll. During photosynthesis, carbon dioxide and water are used as raw materials, and oxygen is released as a byproduct. The overall reaction can be summarized as: carbon dioxide plus water, in the presence of light, produces glucose and oxygen. Photosynthesis is essential for life on Earth because it produces the oxygen we breathe and forms the base of most food chains.\",\"numQuestions\":3}')",
+      "Bash(node test_ai_gen.mjs)"
     ]
   }
 }
