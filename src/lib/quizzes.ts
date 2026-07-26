@@ -1,5 +1,5 @@
 import { supabase, type User } from './supabase';
-import { Question, QuizPreset } from '../types';
+import { Question } from '../types';
 
 export interface StoredQuiz {
   id: string;
@@ -155,13 +155,4 @@ export const shareQuizWithEmail = async (
 export const removeCollaborator = async (collaboratorId: string): Promise<void> => {
   const { error } = await supabase.from('quiz_collaborators').delete().eq('id', collaboratorId);
   if (error) throw error;
-};
-
-export const seedPresetQuizzes = async (user: User, presets: QuizPreset[]): Promise<number> => {
-  let count = 0;
-  for (const preset of presets) {
-    await createQuiz(user, preset.title, preset.description, preset.category, preset.questions, false);
-    count++;
-  }
-  return count;
 };

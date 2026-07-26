@@ -14,15 +14,14 @@ import {
   listMyQuizzes,
   listCollaborators,
   shareQuizWithEmail,
-  removeCollaborator,
-  seedPresetQuizzes
+  removeCollaborator
 } from '../lib/quizzes';
 import { createRoom, generateRoomCode, saveActiveHostRoomCode } from '../lib/rooms';
 import { AuthModal } from './AuthModal';
 import {
-  Plus, Trash2, Edit3, CheckCircle, Sparkles, Tv, Copy, Upload,
-  Layers, ArrowRight, ShieldCheck, Database, LogIn, Users2, Cloud,
-  RefreshCw, Mail, X, Wand2, FileText, FileUp, Loader2, PartyPopper
+  Plus, Trash2, Edit3, CheckCircle, Sparkles, Tv, Upload,
+  ArrowLeft, Database, LogIn, Users2, Cloud,
+  RefreshCw, Mail, X, Wand2, FileText, FileUp, Loader2, PartyPopper, PlusCircle, Dices
 } from 'lucide-react';
 import byteeitLogo from '../assets/images/byteeit_logo_1784809227570.jpg';
 
@@ -31,7 +30,11 @@ interface QuizBuilderViewProps {
   currentUser: User | null;
 }
 
+type BuilderStage = 'library' | 'editor';
+
 export const QuizBuilderView: React.FC<QuizBuilderViewProps> = ({ setMode, currentUser }) => {
+  const [stage, setStage] = useState<BuilderStage>('library');
+
   const [myQuizzes, setMyQuizzes] = useState<{ owned: StoredQuiz[]; shared: StoredQuiz[] }>({
     owned: [],
     shared: []
@@ -39,18 +42,17 @@ export const QuizBuilderView: React.FC<QuizBuilderViewProps> = ({ setMode, curre
   const [isLoadingCloud, setIsLoadingCloud] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
 
-  // Quiz Editor State
+  // Quiz Editor State -- starts blank; a Library action (New / Edit / Template) fills it in.
   const [loadedQuizId, setLoadedQuizId] = useState<string | null>(null);
-  const [selectedPresetId, setSelectedPresetId] = useState<string>(PRESET_QUIZZES[0].id);
-  const [quizTitle, setQuizTitle] = useState<string>(PRESET_QUIZZES[0].title);
-  const [quizCategory, setQuizCategory] = useState<string>(PRESET_QUIZZES[0].category);
+  const [quizTitle, setQuizTitle] = useState<string>('');
+  const [quizCategory, setQuizCategory] = useState<string>('Custom Quiz');
   const [hostName, setHostName] = useState<string>('');
   const [customRoomPin, setCustomRoomPin] = useState<string>(generateRoomCode());
 
-  const [questions, setQuestions] = useState<Question[]>(PRESET_QUIZZES[0].questions);
+  const [questions, setQuestions] = useState<Question[]>([]);
   const [editingQuestionIdx, setEditingQuestionIdx] = useState<number | null>(null);
 
-  // Form state for creating/editing a question
+  // Form state for creating/editing a single question
   const [qText, setQText] = useState('');
   const [qOptions, setQOptions] = useState<string[]>(['', '', '', '']);
   const [qCorrect, setQCorrect] = useState<number>(0);
@@ -60,6 +62,7 @@ export const QuizBuilderView: React.FC<QuizBuilderViewProps> = ({ setMode, curre
   const [jsonInput, setJsonInput] = useState('');
   const [showJsonModal, setShowJsonModal] = useState(false);
   const [isSavingCloud, setIsSavingCloud] = useState(false);
+  const [saveSuccessMessage, setSaveSuccessMessage] = useState('');
   const [isLaunching, setIsLaunching] = useState(false);
 
   // AI Quiz Generator (paste text or upload a PDF, Gemini fills in the questions)
@@ -103,27 +106,60 @@ export const QuizBuilderView: React.FC<QuizBuilderViewProps> = ({ setMode, curre
     }
   };
 
-  // Select a built-in preset
-  const handleSelectPreset = (presetId: string) => {
+  // Reset every editor field back to a blank slate before entering the editor.
+  const resetEditorFields = () => {
+    setLoadedQuizId(null);
+    setQuizTitle('');
+    setQuizCategory('Custom Quiz');
+    setQuestions([]);
+    setCustomRoomPin(generateRoomCode());
+    setEditingQuestionIdx(null);
+    setQText('');
+    setQOptions(['', '', '', '']);
+    setQCorrect(0);
+    setQExplanation('');
+    setSourceText('');
+    setPdfFileName('');
+    setGenerationError('');
+    setGenerationSuccess('');
+    setSaveSuccessMessage('');
+  };
+
+  // "+ Create New Quiz" -- always a genuinely blank form.
+  const handleCreateNewQuiz = () => {
+    soundEffects.playClick();
+    resetEditorFields();
+    setStage('editor');
+  };
+
+  // Start a new quiz pre-filled from a built-in template. Saving always creates
+  // a brand-new quiz for the user -- it never touches or duplicates the template.
+  const handleUseTemplate = (presetId: string) => {
     soundEffects.playClick();
     const found = PRESET_QUIZZES.find((p) => p.id === presetId);
     if (!found) return;
-    setSelectedPresetId(presetId);
-    setLoadedQuizId(null);
+    resetEditorFields();
     setQuizTitle(found.title);
     setQuizCategory(found.category);
     setQuestions([...found.questions]);
+    setStage('editor');
   };
 
-  // Select a quiz saved in the cloud (owned or shared-with-me)
-  const handleSelectCloudQuiz = (quiz: StoredQuiz) => {
+  // Open one of the user's own (or shared-with-them) saved quizzes for editing.
+  const handleEditQuiz = (quiz: StoredQuiz) => {
     soundEffects.playClick();
-    setSelectedPresetId('');
+    resetEditorFields();
     setLoadedQuizId(quiz.id);
     setQuizTitle(quiz.title);
     setQuizCategory(quiz.category);
     setQuestions([...quiz.questions]);
+    setStage('editor');
+  };
+
+  const handleBackToLibrary = () => {
+    soundEffects.playClick();
     setShowShareModal(false);
+    setStage('library');
   };
 
   // Save Quiz to Supabase (create new, or update the loaded one)
@@ -132,21 +168,29 @@ export const QuizBuilderView: React.FC<QuizBuilderViewProps> = ({ setMode, curre
       setShowAuthModal(true);
       return;
     }
+    if (!quizTitle.trim()) {
+      alert('Give your quiz a title first!');
+      return;
+    }
     if (questions.length === 0) {
       alert('Add at least 1 question before saving!');
       return;
     }
 
     setIsSavingCloud(true);
+    setSaveSuccessMessage('');
     try {
       if (loadedQuizId) {
         await updateQuiz(loadedQuizId, { title: quizTitle, category: quizCategory, questions });
+        setSaveSuccessMessage('✅ Changes saved!');
       } else {
         const created = await createQuiz(currentUser, quizTitle, '', quizCategory, questions);
         setLoadedQuizId(created.id);
+        setSaveSuccessMessage('✅ Quiz saved to your account! Keep editing or launch it whenever you like.');
       }
       soundEffects.playClick();
       await loadCloudQuizzes();
+      setTimeout(() => setSaveSuccessMessage(''), 5000);
     } catch (err: any) {
       alert(`Failed to save: ${err.message}`);
     } finally {
@@ -154,33 +198,14 @@ export const QuizBuilderView: React.FC<QuizBuilderViewProps> = ({ setMode, curre
     }
   };
 
-  const handleDeleteCloudQuiz = async (quizId: string) => {
-    if (!confirm('Delete this quiz permanently? This cannot be undone.')) return;
+  const handleDeleteCloudQuiz = async (quizId: string, title: string) => {
+    if (!confirm(`Delete "${title}" permanently? This cannot be undone.`)) return;
     try {
       await deleteQuiz(quizId);
-      if (loadedQuizId === quizId) setLoadedQuizId(null);
       soundEffects.playClick();
       await loadCloudQuizzes();
     } catch (err: any) {
       alert(`Failed to delete: ${err.message}`);
-    }
-  };
-
-  const handleSeedPresetsToCloud = async () => {
-    if (!currentUser) {
-      setShowAuthModal(true);
-      return;
-    }
-    setIsSavingCloud(true);
-    try {
-      const count = await seedPresetQuizzes(currentUser, PRESET_QUIZZES);
-      soundEffects.playClick();
-      alert(`Saved ${count} preset quizzes to your account!`);
-      await loadCloudQuizzes();
-    } catch (err: any) {
-      alert(`Failed to save presets: ${err.message}`);
-    } finally {
-      setIsSavingCloud(false);
     }
   };
 
@@ -285,11 +310,12 @@ export const QuizBuilderView: React.FC<QuizBuilderViewProps> = ({ setMode, curre
 
   const handleDeleteClick = (idx: number) => {
     soundEffects.playClick();
-    if (questions.length <= 1) {
-      alert('A quiz must have at least 1 question!');
-      return;
-    }
     setQuestions(questions.filter((_, i) => i !== idx));
+    if (editingQuestionIdx === idx) {
+      setEditingQuestionIdx(null);
+      setQText('');
+      setQOptions(['', '', '', '']);
+    }
   };
 
   // Launch Host Mode with the current quiz
@@ -359,13 +385,11 @@ export const QuizBuilderView: React.FC<QuizBuilderViewProps> = ({ setMode, curre
     try {
       const result = await generateQuizFromText(sourceText, aiNumQuestions);
       setQuestions(result.questions);
-      setQuizTitle(result.suggestedTitle || quizTitle);
-      setQuizCategory(result.suggestedCategory || quizCategory);
-      setLoadedQuizId(null);
-      setSelectedPresetId('');
+      if (!quizTitle.trim()) setQuizTitle(result.suggestedTitle || '');
+      if (!quizCategory.trim() || quizCategory === 'Custom Quiz') setQuizCategory(result.suggestedCategory || quizCategory);
       setEditingQuestionIdx(null);
       soundEffects.playFanfare();
-      setGenerationSuccess(`Generated ${result.questions.length} questions! Review them below, edit anything that needs a tweak, then Save or Launch.`);
+      setGenerationSuccess(`Generated ${result.questions.length} questions! Review them below, edit anything that needs a tweak, then Save.`);
       questionsListRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     } catch (err: any) {
       setGenerationError(err.message || 'Quiz generation failed. Please try again.');
@@ -380,10 +404,8 @@ export const QuizBuilderView: React.FC<QuizBuilderViewProps> = ({ setMode, curre
       const parsed = JSON.parse(jsonInput);
       if (Array.isArray(parsed) && parsed.length > 0) {
         setQuestions(parsed);
-        setLoadedQuizId(null);
         setShowJsonModal(false);
         soundEffects.playClick();
-        alert(`Successfully imported ${parsed.length} custom questions!`);
       } else {
         alert('Invalid JSON format. Expected an array of question objects.');
       }
@@ -392,387 +414,379 @@ export const QuizBuilderView: React.FC<QuizBuilderViewProps> = ({ setMode, curre
     }
   };
 
-  return (
-    <div className="max-w-6xl mx-auto px-4 py-8 space-y-8 animate-pop-in">
-      {/* Header Banner */}
-      <div className="bg-white border-4 border-ink/10 rounded-[2rem] p-6 sm:p-8 text-center sm:text-left flex flex-col sm:flex-row items-center justify-between gap-6 shadow-xl relative overflow-hidden">
-        <div className="absolute -top-16 -right-16 w-64 h-64 bg-grape/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="flex items-center gap-4">
-          <img
-            src={byteeitLogo}
-            alt="ByteeIT Logo"
-            referrerPolicy="no-referrer"
-            className="h-11 sm:h-14 w-auto max-w-full rounded-2xl object-contain border-4 border-sky/30 shadow-md shrink-0"
-          />
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="px-2.5 py-0.5 bg-grape/15 border-2 border-grape/30 text-grape-dark text-[11px] font-bold rounded-full uppercase tracking-wider">
-                Universal Quiz Studio
-              </span>
-              <span className="text-xs text-grass-dark font-bold flex items-center gap-1">
-                <ShieldCheck className="w-3.5 h-3.5" /> ByteeIT Platform
-              </span>
-            </div>
-            <h2 className="text-2xl sm:text-3xl font-display font-extrabold text-ink mt-1">
-              Create & Host Any Quiz 🛠️
-            </h2>
-            <p className="text-ink-soft text-xs sm:text-sm mt-1 font-medium">
-              Design custom questions, save them to your account, share with teammates by email, and host live games.
-            </p>
-          </div>
-        </div>
-
-        <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
-          {!currentUser && (
-            <button
-              onClick={() => setShowAuthModal(true)}
-              className="btn-pop w-full sm:w-auto shrink-0 px-4 py-2.5 bg-sky border-2 border-b-4 border-sky-dark hover:brightness-105 text-white font-bold rounded-2xl text-xs flex items-center justify-center gap-2 whitespace-nowrap shadow-md"
-            >
-              <LogIn className="w-4 h-4" />
-              <span>Sign In / Sign Up</span>
-            </button>
-          )}
-
-          <button
-            onClick={handleLaunchQuiz}
-            disabled={isLaunching}
-            className="btn-pop w-full sm:w-auto px-6 py-3 bg-grass border-2 border-b-4 border-grass-dark hover:brightness-105 disabled:opacity-50 text-white font-display font-extrabold rounded-2xl shadow-md flex items-center justify-center gap-2 text-sm shrink-0"
-          >
-            <Tv className="w-5 h-5" />
-            <span>{isLaunching ? 'Launching…' : 'Launch & Host Live Room'}</span>
-            <ArrowRight className="w-4 h-4" />
-          </button>
-        </div>
+  const quizCard = (cq: StoredQuiz, canEdit: boolean) => (
+    <div
+      key={cq.id}
+      className="p-4 rounded-2xl border-2 border-ink/10 bg-cream space-y-2 hover:border-sky/30 transition-colors"
+    >
+      <div className="flex items-center gap-1.5 text-[10px] text-grass-dark font-bold uppercase tracking-wider">
+        <span>{cq.category}</span>
+        <span>•</span>
+        <span>{cq.questions.length} Qs</span>
+        {!canEdit && <span className="text-sky-dark">• Shared with you</span>}
       </div>
+      <h4 className="font-bold text-sm text-ink truncate">{cq.title}</h4>
+      <div className="flex items-center gap-2 pt-1">
+        <button
+          onClick={() => handleEditQuiz(cq)}
+          className="btn-pop flex-1 px-3 py-1.5 bg-sky border-2 border-b-4 border-sky-dark hover:brightness-105 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5"
+        >
+          <Edit3 className="w-3.5 h-3.5" />
+          <span>Edit</span>
+        </button>
+        {canEdit && (
+          <button
+            onClick={() => handleDeleteCloudQuiz(cq.id, cq.title)}
+            className="p-2 hover:bg-coral/10 rounded-xl text-ink-soft hover:text-coral-dark shrink-0"
+            title="Delete Quiz"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        )}
+      </div>
+    </div>
+  );
 
-      {/* AI Quiz Generator: paste text or upload a PDF, Gemini writes the quiz for you */}
-      <div className="bg-white border-4 border-grape/30 rounded-[2rem] p-6 sm:p-8 shadow-xl space-y-5 relative overflow-hidden">
-        <div className="absolute -top-20 -right-20 w-72 h-72 bg-grape/10 rounded-full blur-3xl pointer-events-none" />
-
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 bg-grape/15 border-2 border-grape/30 rounded-2xl flex items-center justify-center text-grape-dark shrink-0">
-            <Wand2 className="w-6 h-6" />
+  return (
+    <div className="max-w-6xl mx-auto px-4 py-8 space-y-6 animate-pop-in">
+      {stage === 'library' ? (
+        <>
+          {/* Header Banner */}
+          <div className="bg-white border-4 border-ink/10 rounded-[2rem] p-6 sm:p-8 shadow-xl relative overflow-hidden">
+            <div className="absolute -top-16 -right-16 w-64 h-64 bg-grape/10 rounded-full blur-3xl pointer-events-none" />
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
+              <div className="flex items-center gap-4 text-center sm:text-left">
+                <img
+                  src={byteeitLogo}
+                  alt="ByteeIT Logo"
+                  referrerPolicy="no-referrer"
+                  className="h-11 sm:h-14 w-auto max-w-full rounded-2xl object-contain border-4 border-sky/30 shadow-md shrink-0 hidden sm:block"
+                />
+                <div>
+                  <span className="px-2.5 py-0.5 bg-grape/15 border-2 border-grape/30 text-grape-dark text-[11px] font-bold rounded-full uppercase tracking-wider">
+                    Quiz Studio
+                  </span>
+                  <h2 className="text-2xl sm:text-3xl font-display font-extrabold text-ink mt-1">Your Quizzes 🗂️</h2>
+                  <p className="text-ink-soft text-xs sm:text-sm mt-1 font-medium">
+                    Create a quiz, save it, then launch it as a live game whenever you're ready.
+                  </p>
+                </div>
+              </div>
+              {!currentUser && (
+                <button
+                  onClick={() => setShowAuthModal(true)}
+                  className="btn-pop w-full sm:w-auto shrink-0 px-4 py-2.5 bg-sky border-2 border-b-4 border-sky-dark hover:brightness-105 text-white font-bold rounded-2xl text-xs flex items-center justify-center gap-2 whitespace-nowrap shadow-md"
+                >
+                  <LogIn className="w-4 h-4" />
+                  <span>Sign In / Sign Up</span>
+                </button>
+              )}
+            </div>
           </div>
-          <div>
-            <h3 className="text-xl font-display font-extrabold text-ink">✨ Instant Quiz Builder</h3>
-            <p className="text-ink-soft text-xs sm:text-sm font-medium">
-              Paste your notes or upload a PDF -- AI writes the questions, you just review and go!
-            </p>
-          </div>
-        </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-5">
-          <div className="space-y-2">
-            <div className="flex items-center justify-between flex-wrap gap-2">
-              <label className="text-xs font-bold text-ink-soft uppercase tracking-wider flex items-center gap-1.5">
-                <FileText className="w-3.5 h-3.5" /> Paste content, or upload a PDF below
-              </label>
-              <input
-                ref={pdfInputRef}
-                type="file"
-                accept="application/pdf"
-                className="hidden"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) handlePdfUpload(file);
-                  e.target.value = '';
-                }}
-              />
+          {/* Big, unmistakable Create New Quiz action */}
+          <button
+            onClick={handleCreateNewQuiz}
+            className="btn-pop w-full bg-grass border-4 border-b-8 border-grass-dark hover:brightness-105 text-white rounded-[2rem] p-6 sm:p-8 shadow-xl flex items-center justify-center gap-3"
+          >
+            <PlusCircle className="w-7 h-7 sm:w-8 sm:h-8" />
+            <span className="text-xl sm:text-2xl font-display font-extrabold">Create New Quiz</span>
+          </button>
+
+          {/* My Quizzes */}
+          {currentUser ? (
+            <div className="bg-white border-4 border-ink/10 rounded-[2rem] p-6 shadow-xl space-y-4">
+              <div className="flex items-center justify-between border-b-2 border-ink/10 pb-3">
+                <h3 className="text-sm font-display font-bold text-ink uppercase tracking-wider flex items-center gap-2">
+                  <Cloud className="w-4 h-4 text-grass-dark" />
+                  My Quizzes ({myQuizzes.owned.length})
+                </h3>
+                <button
+                  onClick={loadCloudQuizzes}
+                  className="text-[11px] text-ink-soft hover:text-ink flex items-center gap-1 font-semibold"
+                >
+                  <RefreshCw className={`w-3 h-3 ${isLoadingCloud ? 'animate-spin' : ''}`} /> Refresh
+                </button>
+              </div>
+
+              {isLoadingCloud ? (
+                <p className="text-xs text-ink-soft/70 italic py-2">Loading your quizzes…</p>
+              ) : myQuizzes.owned.length === 0 ? (
+                <p className="text-xs text-ink-soft/70 italic py-2">
+                  No quizzes yet -- click "Create New Quiz" above, or start from a template below.
+                </p>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {myQuizzes.owned.map((cq) => quizCard(cq, true))}
+                </div>
+              )}
+
+              {myQuizzes.shared.length > 0 && (
+                <div className="space-y-2 pt-2 border-t-2 border-ink/10">
+                  <span className="text-xs font-bold text-sky-dark flex items-center gap-1 pt-2">
+                    <Users2 className="w-3.5 h-3.5" /> Shared With Me ({myQuizzes.shared.length})
+                  </span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {myQuizzes.shared.map((cq) => quizCard(cq, false))}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="bg-white border-4 border-sky/20 rounded-[2rem] p-6 shadow-xl text-center space-y-3">
+              <p className="text-sm text-ink-soft font-semibold">
+                Sign in to save your quizzes to the cloud and host them anytime.
+              </p>
               <button
-                type="button"
-                onClick={() => pdfInputRef.current?.click()}
-                disabled={isExtractingPdf}
-                className="btn-pop px-3 py-1.5 bg-white hover:bg-cream text-grape-dark border-2 border-b-4 border-grape/30 rounded-xl text-xs font-bold flex items-center gap-1.5 disabled:opacity-50"
+                onClick={() => setShowAuthModal(true)}
+                className="btn-pop px-5 py-2.5 bg-sky border-2 border-b-4 border-sky-dark hover:brightness-105 text-white font-bold rounded-2xl text-xs inline-flex items-center gap-2"
               >
-                {isExtractingPdf ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileUp className="w-3.5 h-3.5" />}
-                <span>{isExtractingPdf ? 'Reading PDF…' : pdfFileName ? `📄 ${pdfFileName}` : 'Upload PDF'}</span>
+                <LogIn className="w-4 h-4" />
+                <span>Sign In / Sign Up</span>
               </button>
             </div>
-            <textarea
-              rows={6}
-              value={sourceText}
-              onChange={(e) => setSourceText(e.target.value)}
-              placeholder="Paste your notes, article, slide text, or training material here... (or upload a PDF and we'll drop the text in for you)"
-              className="w-full px-4 py-3 bg-cream border-2 border-ink/10 rounded-2xl text-ink text-sm focus:outline-none focus:border-grape font-medium resize-y"
-            />
-          </div>
+          )}
 
-          <div className="flex flex-col gap-2 lg:w-48">
-            <label className="text-xs font-bold text-ink-soft uppercase tracking-wider"># of Questions</label>
-            <select
-              value={aiNumQuestions}
-              onChange={(e) => setAiNumQuestions(Number(e.target.value))}
-              className="px-3 py-2.5 bg-cream border-2 border-ink/10 rounded-2xl text-sm text-ink font-bold focus:outline-none"
-            >
-              {[5, 10, 15, 20].map((n) => (
-                <option key={n} value={n}>{n} Questions</option>
-              ))}
-            </select>
-
-            <button
-              onClick={handleGenerateQuiz}
-              disabled={isGeneratingQuiz || isExtractingPdf}
-              className="btn-pop mt-auto px-4 py-3.5 bg-grape border-2 border-b-4 border-grape-dark hover:brightness-105 disabled:opacity-50 text-white font-display font-extrabold rounded-2xl shadow-md flex items-center justify-center gap-2 text-sm"
-            >
-              {isGeneratingQuiz ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Thinking…</span>
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-4 h-4" />
-                  <span>Generate Quiz</span>
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-
-        {generationError && (
-          <div className="p-3 bg-coral/10 border-2 border-coral/40 text-coral-dark rounded-2xl text-xs font-bold">
-            {generationError}
-          </div>
-        )}
-        {generationSuccess && (
-          <div className="p-3 bg-grass/10 border-2 border-grass/40 text-grass-dark rounded-2xl text-xs font-bold flex items-center gap-2">
-            <PartyPopper className="w-4 h-4 shrink-0" />
-            <span>{generationSuccess}</span>
-          </div>
-        )}
-      </div>
-
-      {/* Main Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        {/* Left Column: Room & Host Config + Presets */}
-        <div className="lg:col-span-5 space-y-6">
+          {/* Templates */}
           <div className="bg-white border-4 border-ink/10 rounded-[2rem] p-6 shadow-xl space-y-4">
-            <div className="flex items-center justify-between border-b-2 border-ink/10 pb-3">
-              <h3 className="text-sm font-display font-bold text-ink uppercase tracking-wider flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-sunny-dark" />
-                1. Host & Room Configuration
-              </h3>
-              <div className="flex items-center gap-1.5">
-                {loadedQuizId && currentUser && (
-                  <button
-                    onClick={openShareModal}
-                    className="btn-pop px-3 py-1 bg-white hover:bg-cream text-ink-soft border-2 border-b-4 border-ink/15 text-xs font-bold rounded-xl flex items-center gap-1 shadow-sm"
-                  >
-                    <Users2 className="w-3.5 h-3.5" />
-                    <span>Share</span>
-                  </button>
-                )}
+            <h3 className="text-sm font-display font-bold text-ink uppercase tracking-wider flex items-center gap-2 border-b-2 border-ink/10 pb-3">
+              <Sparkles className="w-4 h-4 text-sunny-dark" />
+              Templates -- Start From These
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {PRESET_QUIZZES.map((preset) => (
                 <button
-                  onClick={handleSaveToCloud}
-                  disabled={isSavingCloud}
-                  className="btn-pop px-3 py-1 bg-sky border-2 border-b-4 border-sky-dark hover:brightness-105 text-white text-xs font-bold rounded-xl flex items-center gap-1 shadow-sm disabled:opacity-50"
+                  key={preset.id}
+                  onClick={() => handleUseTemplate(preset.id)}
+                  className="text-left p-4 rounded-2xl border-2 border-ink/10 bg-cream hover:bg-white hover:border-sky/30 transition-all"
                 >
-                  <Database className="w-3.5 h-3.5" />
-                  <span>{isSavingCloud ? 'Saving...' : loadedQuizId ? 'Update Quiz' : 'Save Quiz'}</span>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-sky-dark uppercase tracking-wider">{preset.category}</span>
+                    <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-white text-ink-soft border border-ink/10">
+                      {preset.questions.length} Qs
+                    </span>
+                  </div>
+                  <h4 className="font-bold text-sm text-ink mt-1">{preset.title}</h4>
+                  <p className="text-xs text-ink-soft line-clamp-1 mt-0.5">{preset.description}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+        </>
+      ) : (
+        <>
+          {/* Sticky editor action bar: back / title / save / launch -- always reachable */}
+          <div className="sticky top-[100px] z-20 bg-paper/97 backdrop-blur-md border-4 border-ink/10 rounded-[2rem] p-3 sm:p-4 shadow-xl flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+            <button
+              onClick={handleBackToLibrary}
+              className="btn-pop shrink-0 px-3 py-2.5 bg-white border-2 border-b-4 border-ink/15 rounded-xl text-xs font-bold text-ink-soft flex items-center justify-center gap-1.5"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span className="sm:hidden">Back to My Quizzes</span>
+            </button>
+            <input
+              type="text"
+              value={quizTitle}
+              onChange={(e) => setQuizTitle(e.target.value)}
+              placeholder="Untitled Quiz -- give it a name"
+              className="flex-1 min-w-0 px-3.5 py-2.5 bg-cream border-2 border-ink/10 rounded-xl text-ink font-display font-bold text-base focus:outline-none focus:border-sky"
+            />
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={handleSaveToCloud}
+                disabled={isSavingCloud}
+                className="btn-pop flex-1 sm:flex-none px-4 py-2.5 bg-sky border-2 border-b-4 border-sky-dark hover:brightness-105 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 disabled:opacity-50 whitespace-nowrap"
+              >
+                <Database className="w-3.5 h-3.5" />
+                <span>{isSavingCloud ? 'Saving…' : loadedQuizId ? 'Update Quiz' : 'Save Quiz'}</span>
+              </button>
+              <button
+                onClick={handleLaunchQuiz}
+                disabled={isLaunching}
+                className="btn-pop flex-1 sm:flex-none px-4 py-2.5 bg-grass border-2 border-b-4 border-grass-dark hover:brightness-105 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 disabled:opacity-50 whitespace-nowrap"
+              >
+                <Tv className="w-3.5 h-3.5" />
+                <span>{isLaunching ? 'Launching…' : 'Launch'}</span>
+              </button>
+            </div>
+          </div>
+
+          {saveSuccessMessage && (
+            <div className="p-3 bg-grass/10 border-2 border-grass/40 text-grass-dark rounded-2xl text-xs font-bold text-center animate-pop-in">
+              {saveSuccessMessage}
+            </div>
+          )}
+
+          {/* Room settings */}
+          <div className="bg-white border-4 border-ink/10 rounded-[2rem] p-5 sm:p-6 shadow-xl grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <label className="text-xs font-bold text-ink-soft block mb-1">Host Name / Brand</label>
+              <input
+                type="text"
+                value={hostName}
+                onChange={(e) => setHostName(e.target.value)}
+                placeholder="e.g. Nawab Khan"
+                className="w-full px-3.5 py-2.5 bg-cream border-2 border-ink/10 rounded-2xl text-sky-dark font-semibold text-sm focus:outline-none focus:border-sky"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-bold text-ink-soft block mb-1">Game PIN (when hosting)</label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={customRoomPin}
+                  onChange={(e) => setCustomRoomPin(e.target.value.toUpperCase())}
+                  maxLength={10}
+                  className="w-full px-3.5 py-2.5 bg-cream border-2 border-ink/10 rounded-2xl text-sunny-dark font-display font-extrabold text-center tracking-widest focus:outline-none focus:border-sunny"
+                />
+                <button
+                  onClick={handleGeneratePin}
+                  title="Random PIN"
+                  className="btn-pop p-2.5 bg-white hover:bg-cream text-ink-soft rounded-2xl border-2 border-b-4 border-ink/15 shrink-0"
+                >
+                  <Dices className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+            <div className="flex items-end">
+              {loadedQuizId && currentUser ? (
+                <button
+                  onClick={openShareModal}
+                  className="btn-pop w-full px-3.5 py-2.5 bg-white hover:bg-cream text-ink-soft border-2 border-b-4 border-ink/15 text-xs font-bold rounded-2xl flex items-center justify-center gap-1.5"
+                >
+                  <Users2 className="w-3.5 h-3.5" />
+                  <span>Share with Team</span>
+                </button>
+              ) : (
+                <p className="text-[11px] text-ink-soft/70 italic">Save the quiz to unlock sharing.</p>
+              )}
+            </div>
+          </div>
+
+          {/* AI Quiz Generator: paste text or upload a PDF, Gemini writes the quiz for you */}
+          <div className="bg-white border-4 border-grape/30 rounded-[2rem] p-6 sm:p-8 shadow-xl space-y-5 relative overflow-hidden">
+            <div className="absolute -top-20 -right-20 w-72 h-72 bg-grape/10 rounded-full blur-3xl pointer-events-none" />
+
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-grape/15 border-2 border-grape/30 rounded-2xl flex items-center justify-center text-grape-dark shrink-0">
+                <Wand2 className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-xl font-display font-extrabold text-ink">✨ Instant Quiz Builder</h3>
+                <p className="text-ink-soft text-xs sm:text-sm font-medium">
+                  Paste your notes or upload a PDF -- AI writes the questions, you just review and go!
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-5">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <label className="text-xs font-bold text-ink-soft uppercase tracking-wider flex items-center gap-1.5">
+                    <FileText className="w-3.5 h-3.5" /> Paste content, or upload a PDF below
+                  </label>
+                  <input
+                    ref={pdfInputRef}
+                    type="file"
+                    accept="application/pdf"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handlePdfUpload(file);
+                      e.target.value = '';
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => pdfInputRef.current?.click()}
+                    disabled={isExtractingPdf}
+                    className="btn-pop px-3 py-1.5 bg-white hover:bg-cream text-grape-dark border-2 border-b-4 border-grape/30 rounded-xl text-xs font-bold flex items-center gap-1.5 disabled:opacity-50"
+                  >
+                    {isExtractingPdf ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileUp className="w-3.5 h-3.5" />}
+                    <span>{isExtractingPdf ? 'Reading PDF…' : pdfFileName ? `📄 ${pdfFileName}` : 'Upload PDF'}</span>
+                  </button>
+                </div>
+                <textarea
+                  rows={6}
+                  value={sourceText}
+                  onChange={(e) => setSourceText(e.target.value)}
+                  placeholder="Paste your notes, article, slide text, or training material here... (or upload a PDF and we'll drop the text in for you)"
+                  className="w-full px-4 py-3 bg-cream border-2 border-ink/10 rounded-2xl text-ink text-sm focus:outline-none focus:border-grape font-medium resize-y"
+                />
+              </div>
+
+              <div className="flex flex-col gap-2 lg:w-48">
+                <label className="text-xs font-bold text-ink-soft uppercase tracking-wider"># of Questions</label>
+                <select
+                  value={aiNumQuestions}
+                  onChange={(e) => setAiNumQuestions(Number(e.target.value))}
+                  className="px-3 py-2.5 bg-cream border-2 border-ink/10 rounded-2xl text-sm text-ink font-bold focus:outline-none"
+                >
+                  {[5, 10, 15, 20].map((n) => (
+                    <option key={n} value={n}>{n} Questions</option>
+                  ))}
+                </select>
+
+                <button
+                  onClick={handleGenerateQuiz}
+                  disabled={isGeneratingQuiz || isExtractingPdf}
+                  className="btn-pop mt-auto px-4 py-3.5 bg-grape border-2 border-b-4 border-grape-dark hover:brightness-105 disabled:opacity-50 text-white font-display font-extrabold rounded-2xl shadow-md flex items-center justify-center gap-2 text-sm"
+                >
+                  {isGeneratingQuiz ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Thinking…</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4" />
+                      <span>Generate Quiz</span>
+                    </>
+                  )}
                 </button>
               </div>
             </div>
 
-            <div className="space-y-3">
-              <div>
-                <label className="text-xs font-bold text-ink-soft block mb-1">Quiz Title</label>
-                <input
-                  type="text"
-                  value={quizTitle}
-                  onChange={(e) => setQuizTitle(e.target.value)}
-                  placeholder="e.g. ByteeIT Tech Sprint Trivia 2026"
-                  className="w-full px-3.5 py-2.5 bg-cream border-2 border-ink/10 rounded-2xl text-ink font-bold text-sm focus:outline-none focus:border-sky"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-ink-soft block mb-1">Host Name / Brand</label>
-                <input
-                  type="text"
-                  value={hostName}
-                  onChange={(e) => setHostName(e.target.value)}
-                  placeholder="e.g. Nawab Khan"
-                  className="w-full px-3.5 py-2.5 bg-cream border-2 border-ink/10 rounded-2xl text-sky-dark font-bold text-sm focus:outline-none focus:border-sky"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-ink-soft block mb-1">Custom Game PIN / Room Code</label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={customRoomPin}
-                    onChange={(e) => setCustomRoomPin(e.target.value.toUpperCase())}
-                    maxLength={10}
-                    className="w-full px-3.5 py-2.5 bg-cream border-2 border-ink/10 rounded-2xl text-sunny-dark font-display font-extrabold text-center text-base tracking-widest focus:outline-none focus:border-sunny"
-                  />
-                  <button
-                    onClick={handleGeneratePin}
-                    className="btn-pop px-3 py-2.5 bg-white hover:bg-cream text-ink-soft text-xs font-bold rounded-2xl border-2 border-b-4 border-ink/15 shrink-0"
-                  >
-                    Random PIN
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Preset Quiz Selector & Cloud Quizzes */}
-          <div className="bg-white border-4 border-ink/10 rounded-[2rem] p-6 shadow-xl space-y-4">
-            <div className="flex items-center justify-between border-b-2 border-ink/10 pb-3">
-              <h3 className="text-sm font-display font-bold text-ink uppercase tracking-wider flex items-center gap-2">
-                <Layers className="w-4 h-4 text-sky-dark" />
-                2. Choose a Quiz
-              </h3>
-              <button
-                onClick={() => setShowJsonModal(true)}
-                className="text-xs text-sky-dark font-bold hover:underline flex items-center gap-1"
-              >
-                <Upload className="w-3.5 h-3.5" /> Import
-              </button>
-            </div>
-
-            {currentUser && (
-              <div className="space-y-2 border-b-2 border-ink/10 pb-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-grass-dark flex items-center gap-1">
-                    <Cloud className="w-3.5 h-3.5" /> My Quizzes ({myQuizzes.owned.length})
-                  </span>
-                  <button
-                    onClick={loadCloudQuizzes}
-                    className="text-[11px] text-ink-soft hover:text-ink flex items-center gap-1 font-semibold"
-                  >
-                    <RefreshCw className={`w-3 h-3 ${isLoadingCloud ? 'animate-spin' : ''}`} /> Refresh
-                  </button>
-                </div>
-
-                {myQuizzes.owned.length === 0 ? (
-                  <p className="text-xs text-ink-soft/70 italic">No saved quizzes yet. Click "Save Quiz" above to store one!</p>
-                ) : (
-                  <div className="space-y-2 max-h-48 overflow-y-auto">
-                    {myQuizzes.owned.map((cq) => (
-                      <div
-                        key={cq.id}
-                        className={`p-3 rounded-2xl border-2 flex items-center justify-between gap-2 transition-all ${
-                          loadedQuizId === cq.id
-                            ? 'bg-grass/10 border-grass text-ink'
-                            : 'bg-cream border-ink/10 text-ink-soft'
-                        }`}
-                      >
-                        <button onClick={() => handleSelectCloudQuiz(cq)} className="text-left min-w-0 flex-1">
-                          <div className="flex items-center gap-1.5 text-[10px] text-grass-dark font-bold">
-                            <span>{cq.category}</span>
-                            <span>•</span>
-                            <span>{cq.questions.length} Qs</span>
-                          </div>
-                          <h4 className="font-bold text-xs text-ink truncate">{cq.title}</h4>
-                        </button>
-                        <button
-                          onClick={() => handleDeleteCloudQuiz(cq.id)}
-                          className="p-1 hover:bg-coral/10 rounded text-ink-soft hover:text-coral-dark"
-                          title="Delete Quiz"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {myQuizzes.shared.length > 0 && (
-                  <div className="space-y-2 pt-2">
-                    <span className="text-xs font-bold text-sky-dark flex items-center gap-1">
-                      <Users2 className="w-3.5 h-3.5" /> Shared With Me ({myQuizzes.shared.length})
-                    </span>
-                    <div className="space-y-2 max-h-48 overflow-y-auto">
-                      {myQuizzes.shared.map((cq) => (
-                        <button
-                          key={cq.id}
-                          onClick={() => handleSelectCloudQuiz(cq)}
-                          className={`w-full p-3 rounded-2xl border-2 text-left transition-all ${
-                            loadedQuizId === cq.id
-                              ? 'bg-sky/10 border-sky text-ink'
-                              : 'bg-cream border-ink/10 text-ink-soft'
-                          }`}
-                        >
-                          <div className="flex items-center gap-1.5 text-[10px] text-sky-dark font-bold">
-                            <span>{cq.category}</span>
-                            <span>•</span>
-                            <span>{cq.questions.length} Qs</span>
-                            <span>• Editor access</span>
-                          </div>
-                          <h4 className="font-bold text-xs text-ink truncate">{cq.title}</h4>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
+            {generationError && (
+              <div className="p-3 bg-coral/10 border-2 border-coral/40 text-coral-dark rounded-2xl text-xs font-bold">
+                {generationError}
               </div>
             )}
-
-            {/* Built-in Presets */}
-            <div className="space-y-2.5">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-ink-soft block uppercase tracking-wider">Built-In Presets</span>
-                {currentUser && (
-                  <button
-                    onClick={handleSeedPresetsToCloud}
-                    disabled={isSavingCloud}
-                    className="px-2.5 py-1 bg-sunny/15 hover:bg-sunny/25 text-sunny-dark border-2 border-sunny/30 rounded-xl text-[11px] font-bold transition-all flex items-center gap-1 shadow-sm disabled:opacity-50"
-                    title="Save all preset quizzes into your account"
-                  >
-                    <Cloud className="w-3 h-3" />
-                    <span>Save All to My Account</span>
-                  </button>
-                )}
+            {generationSuccess && (
+              <div className="p-3 bg-grass/10 border-2 border-grass/40 text-grass-dark rounded-2xl text-xs font-bold flex items-center gap-2">
+                <PartyPopper className="w-4 h-4 shrink-0" />
+                <span>{generationSuccess}</span>
               </div>
-              {PRESET_QUIZZES.map((preset) => {
-                const isSelected = selectedPresetId === preset.id;
-                return (
-                  <button
-                    key={preset.id}
-                    onClick={() => handleSelectPreset(preset.id)}
-                    className={`w-full p-3 rounded-2xl border-2 text-left transition-all ${
-                      isSelected
-                        ? 'bg-sky/10 border-sky text-ink shadow-sm'
-                        : 'bg-cream border-ink/10 text-ink-soft hover:bg-white'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-sky-dark uppercase tracking-wider">{preset.category}</span>
-                      <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-white text-ink-soft border border-ink/10">
-                        {preset.questions.length} Questions
-                      </span>
-                    </div>
-                    <h4 className="font-bold text-sm text-ink mt-1">{preset.title}</h4>
-                    <p className="text-xs text-ink-soft line-clamp-1 mt-0.5">{preset.description}</p>
-                  </button>
-                );
-              })}
-            </div>
+            )}
           </div>
-        </div>
 
-        {/* Right Column: Interactive Question Editor & List */}
-        <div className="lg:col-span-7 space-y-6">
+          {/* Add / Edit Question form */}
           <div className="bg-white border-4 border-ink/10 rounded-[2rem] p-6 shadow-xl space-y-5">
             <div className="flex items-center justify-between border-b-2 border-ink/10 pb-3">
               <h3 className="text-sm font-display font-bold text-ink uppercase tracking-wider flex items-center gap-2">
                 <Edit3 className="w-4 h-4 text-grass-dark" />
-                {editingQuestionIdx !== null ? `Edit Question #${editingQuestionIdx + 1}` : 'Add New Question'}
+                {editingQuestionIdx !== null ? `Edit Question #${editingQuestionIdx + 1}` : 'Add a Question'}
               </h3>
-              {editingQuestionIdx !== null && (
+              <div className="flex items-center gap-3">
+                {editingQuestionIdx !== null && (
+                  <button
+                    onClick={() => {
+                      setEditingQuestionIdx(null);
+                      setQText('');
+                      setQOptions(['', '', '', '']);
+                    }}
+                    className="text-xs text-ink-soft hover:text-ink font-semibold"
+                  >
+                    Cancel Edit
+                  </button>
+                )}
                 <button
-                  onClick={() => {
-                    setEditingQuestionIdx(null);
-                    setQText('');
-                    setQOptions(['', '', '', '']);
-                  }}
-                  className="text-xs text-ink-soft hover:text-ink font-semibold"
+                  onClick={() => setShowJsonModal(true)}
+                  className="text-xs text-sky-dark font-bold hover:underline flex items-center gap-1"
                 >
-                  Cancel Edit
+                  <Upload className="w-3.5 h-3.5" /> Import JSON
                 </button>
-              )}
+              </div>
             </div>
 
             <form onSubmit={handleSaveQuestion} className="space-y-4">
@@ -869,58 +883,65 @@ export const QuizBuilderView: React.FC<QuizBuilderViewProps> = ({ setMode, curre
             </form>
           </div>
 
-          <div ref={questionsListRef} className="bg-white border-4 border-ink/10 rounded-[2rem] p-6 shadow-xl space-y-4 scroll-mt-4">
+          {/* Question List */}
+          <div ref={questionsListRef} className="bg-white border-4 border-ink/10 rounded-[2rem] p-6 shadow-xl space-y-4 scroll-mt-32">
             <div className="flex items-center justify-between border-b-2 border-ink/10 pb-3">
               <h3 className="text-sm font-display font-bold text-ink uppercase tracking-wider flex items-center gap-2">
                 <CheckCircle className="w-4 h-4 text-sky-dark" />
-                Quiz Questions List ({questions.length})
+                Quiz Questions ({questions.length})
               </h3>
               <span className="text-xs text-ink-soft font-bold">
                 Total Time: ~{questions.reduce((acc, q) => acc + (q.timeLimit || 30), 0)}s
               </span>
             </div>
 
-            <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1">
-              {questions.map((q, idx) => (
-                <div
-                  key={q.id || idx}
-                  className="bg-cream border-2 border-ink/10 rounded-2xl p-3.5 flex items-start justify-between gap-3 hover:border-sky/30 transition-colors"
-                >
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2 text-xs font-bold">
-                      <span className="px-2 py-0.5 rounded-lg bg-sky/15 text-sky-dark border border-sky/30 font-bold">
-                        Q{idx + 1}
-                      </span>
-                      <span className="text-ink-soft font-semibold">{q.timeLimit || 30}s</span>
+            {questions.length === 0 ? (
+              <p className="text-xs text-ink-soft/70 italic py-4 text-center">
+                No questions yet -- add one above, paste content into the AI generator, or import JSON.
+              </p>
+            ) : (
+              <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
+                {questions.map((q, idx) => (
+                  <div
+                    key={q.id || idx}
+                    className="bg-cream border-2 border-ink/10 rounded-2xl p-3.5 flex items-start justify-between gap-3 hover:border-sky/30 transition-colors"
+                  >
+                    <div className="space-y-1 min-w-0">
+                      <div className="flex items-center gap-2 text-xs font-bold">
+                        <span className="px-2 py-0.5 rounded-lg bg-sky/15 text-sky-dark border border-sky/30 font-bold">
+                          Q{idx + 1}
+                        </span>
+                        <span className="text-ink-soft font-semibold">{q.timeLimit || 30}s</span>
+                      </div>
+                      <p className="text-xs font-bold text-ink leading-snug">{q.question}</p>
+                      <p className="text-[11px] text-grass-dark font-semibold">
+                        Correct Answer: {q.correctAnswerText || q.options[q.correctAnswer]}
+                      </p>
                     </div>
-                    <p className="text-xs font-bold text-ink leading-snug">{q.question}</p>
-                    <p className="text-[11px] text-grass-dark font-semibold">
-                      Correct Answer: {q.correctAnswerText || q.options[q.correctAnswer]}
-                    </p>
-                  </div>
 
-                  <div className="flex items-center gap-1 shrink-0">
-                    <button
-                      onClick={() => handleEditClick(idx)}
-                      className="p-1.5 hover:bg-white rounded-lg text-ink-soft hover:text-ink"
-                      title="Edit Question"
-                    >
-                      <Edit3 className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      onClick={() => handleDeleteClick(idx)}
-                      className="p-1.5 hover:bg-coral/10 rounded-lg text-ink-soft hover:text-coral-dark"
-                      title="Delete Question"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        onClick={() => handleEditClick(idx)}
+                        className="p-1.5 hover:bg-white rounded-lg text-ink-soft hover:text-ink"
+                        title="Edit Question"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteClick(idx)}
+                        className="p-1.5 hover:bg-coral/10 rounded-lg text-ink-soft hover:text-coral-dark"
+                        title="Delete Question"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
-        </div>
-      </div>
+        </>
+      )}
 
       <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
 
@@ -1016,7 +1037,7 @@ export const QuizBuilderView: React.FC<QuizBuilderViewProps> = ({ setMode, curre
           <div className="bg-paper border-4 border-ink/10 rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4 my-8">
             <h3 className="text-base font-display font-bold text-ink">Import Custom Questions via JSON</h3>
             <p className="text-xs text-ink-soft font-medium">
-              Paste an array of question objects containing `question`, `options`, `correctAnswer`, `timeLimit`, and `explanation`.
+              Paste an array of question objects containing `question`, `options`, `correctAnswer`, `timeLimit`, and `explanation`. This replaces the current question list.
             </p>
             <textarea
               rows={8}
