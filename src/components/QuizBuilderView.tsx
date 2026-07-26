@@ -363,7 +363,7 @@ export const QuizBuilderView: React.FC<QuizBuilderViewProps> = ({ setMode, curre
           {!currentUser && (
             <button
               onClick={() => setShowAuthModal(true)}
-              className="btn-pop px-4 py-2.5 bg-sky border-2 border-b-4 border-sky-dark hover:brightness-105 text-white font-bold rounded-2xl text-xs flex items-center gap-2 shadow-md"
+              className="btn-pop w-full sm:w-auto shrink-0 px-4 py-2.5 bg-sky border-2 border-b-4 border-sky-dark hover:brightness-105 text-white font-bold rounded-2xl text-xs flex items-center justify-center gap-2 whitespace-nowrap shadow-md"
             >
               <LogIn className="w-4 h-4" />
               <span>Sign In / Sign Up</span>
