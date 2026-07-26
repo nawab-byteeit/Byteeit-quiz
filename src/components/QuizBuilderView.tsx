@@ -4,7 +4,6 @@ import { Question, ViewMode } from '../types';
 import { PRESET_QUIZZES } from '../data/presetQuizzes';
 import { soundEffects } from '../lib/audio';
 import { type User, getDisplayName } from '../lib/supabase';
-import { extractPdfText } from '../lib/pdfUtils';
 import { generateQuizFromText } from '../lib/aiQuizGen';
 import {
   StoredQuiz,
@@ -331,6 +330,7 @@ export const QuizBuilderView: React.FC<QuizBuilderViewProps> = ({ setMode, curre
     setPdfFileName(file.name);
     setIsExtractingPdf(true);
     try {
+      const { extractPdfText } = await import('../lib/pdfUtils');
       const extracted = await extractPdfText(file);
       if (!extracted || extracted.length < 20) {
         setGenerationError('Could not find readable text in that PDF. Try a different file or paste the content instead.');
