@@ -62,41 +62,41 @@ export const SoloView: React.FC = () => {
 
     return (
       <div className="max-w-2xl mx-auto px-4 py-8">
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-2xl text-center space-y-6">
-          <div className="w-16 h-16 bg-blue-600/20 border border-blue-500/30 rounded-2xl flex items-center justify-center mx-auto text-blue-400">
+        <div className="bg-white border-4 border-ink/10 rounded-[2rem] p-8 shadow-xl text-center space-y-6">
+          <div className="w-16 h-16 bg-sunny/20 border-2 border-sunny/40 rounded-2xl flex items-center justify-center mx-auto text-sunny-dark">
             <Award className="w-8 h-8" />
           </div>
 
           <div>
-            <h2 className="text-3xl font-extrabold text-white">Solo Practice Complete!</h2>
-            <p className="text-slate-400 text-xs mt-1">Self-Paced Mastery Assessment Report</p>
+            <h2 className="text-3xl font-display font-extrabold text-ink">Practice Complete! 🎉</h2>
+            <p className="text-ink-soft text-xs mt-1 font-semibold">Self-Paced Mastery Assessment Report</p>
           </div>
 
-          <div className="grid grid-cols-2 gap-4 max-w-md mx-auto bg-slate-950 p-6 rounded-2xl border border-slate-800">
+          <div className="grid grid-cols-2 gap-4 max-w-md mx-auto bg-cream p-6 rounded-2xl border-2 border-ink/10">
             <div>
-              <span className="text-slate-400 text-xs font-semibold block">Score</span>
-              <span className="text-2xl font-black text-amber-400 font-mono">{score} / {filteredQuestions.length}</span>
+              <span className="text-ink-soft text-xs font-bold block">Score</span>
+              <span className="text-2xl font-display font-extrabold text-sunny-dark">{score} / {filteredQuestions.length}</span>
             </div>
             <div>
-              <span className="text-slate-400 text-xs font-semibold block">Accuracy</span>
-              <span className="text-2xl font-black text-emerald-400 font-mono">{accuracy}%</span>
+              <span className="text-ink-soft text-xs font-bold block">Accuracy</span>
+              <span className="text-2xl font-display font-extrabold text-grass-dark">{accuracy}%</span>
             </div>
           </div>
 
           {/* Session breakdown */}
-          <div className="text-left space-y-2 bg-slate-950/60 p-4 rounded-xl border border-slate-800">
-            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Detailed Results</h4>
+          <div className="text-left space-y-2 bg-cream p-4 rounded-2xl border-2 border-ink/10">
+            <h4 className="text-xs font-bold text-ink-soft uppercase tracking-wider mb-2">Detailed Results</h4>
             {filteredQuestions.map((q, idx) => {
               const ans = answers[q.id];
               return (
-                <div key={q.id} className="flex items-center justify-between text-xs py-1.5 border-b border-slate-800/50 last:border-0">
-                  <span className="text-slate-300 font-medium truncate max-w-xs">
+                <div key={q.id} className="flex items-center justify-between text-xs py-1.5 border-b border-ink/10 last:border-0">
+                  <span className="text-ink font-semibold truncate max-w-xs">
                     Q{idx + 1}. {q.question}
                   </span>
                   {ans?.isCorrect ? (
-                    <span className="text-emerald-400 font-bold shrink-0">Correct ✅</span>
+                    <span className="text-grass-dark font-bold shrink-0">Correct ✅</span>
                   ) : (
-                    <span className="text-red-400 font-bold shrink-0">Incorrect ❌</span>
+                    <span className="text-coral-dark font-bold shrink-0">Incorrect ❌</span>
                   )}
                 </div>
               );
@@ -105,7 +105,7 @@ export const SoloView: React.FC = () => {
 
           <button
             onClick={handleReset}
-            className="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl text-sm inline-flex items-center gap-2 shadow-lg shadow-blue-600/20"
+            className="btn-pop px-6 py-3 bg-sky border-2 border-b-4 border-sky-dark hover:brightness-105 text-white font-bold rounded-2xl text-sm inline-flex items-center gap-2 shadow-md"
           >
             <RotateCcw className="w-4 h-4" />
             <span>Retake Practice</span>
@@ -118,10 +118,10 @@ export const SoloView: React.FC = () => {
   return (
     <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
       {/* Session Filter Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-900 border border-slate-800 p-4 rounded-2xl">
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-white border-4 border-ink/10 p-4 rounded-2xl shadow-sm">
         <div className="flex items-center gap-2">
-          <Target className="w-5 h-5 text-blue-400" />
-          <span className="font-bold text-white text-sm">Self-Paced Practice</span>
+          <Target className="w-5 h-5 text-sky-dark" />
+          <span className="font-display font-bold text-ink text-sm">Self-Paced Practice</span>
         </div>
 
         <div className="flex flex-wrap gap-1.5">
@@ -139,10 +139,10 @@ export const SoloView: React.FC = () => {
                 setCurrentIndex(0);
                 setSelectedOption(null);
               }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              className={`btn-pop px-3 py-1.5 rounded-xl text-xs font-bold border-2 border-b-4 transition-colors ${
                 selectedSession === sess.id
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-slate-800 text-slate-400 hover:text-slate-200'
+                  ? 'bg-sky border-sky-dark text-white'
+                  : 'bg-cream border-ink/10 text-ink-soft hover:text-ink'
               }`}
             >
               {sess.label}
@@ -153,25 +153,25 @@ export const SoloView: React.FC = () => {
 
       {/* Progress bar */}
       <div className="space-y-1">
-        <div className="flex items-center justify-between text-xs text-slate-400 font-semibold">
+        <div className="flex items-center justify-between text-xs text-ink-soft font-bold">
           <span>Question {currentIndex + 1} of {filteredQuestions.length}</span>
           <span>Score: {score}</span>
         </div>
-        <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+        <div className="w-full bg-white border-2 border-ink/10 h-3 rounded-full overflow-hidden">
           <div
-            className="bg-blue-500 h-full transition-all duration-300"
+            className="bg-grass h-full transition-all duration-300 rounded-full"
             style={{ width: `${((currentIndex + 1) / filteredQuestions.length) * 100}%` }}
           />
         </div>
       </div>
 
       {/* Main Question Box */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-xl space-y-6">
+      <div className="bg-white border-4 border-ink/10 rounded-[2rem] p-6 sm:p-8 shadow-xl space-y-6">
         <div>
-          <span className="px-2.5 py-1 bg-blue-500/10 text-blue-400 border border-blue-500/30 rounded-full text-xs font-bold">
+          <span className="px-2.5 py-1 bg-sky/10 text-sky-dark border-2 border-sky/30 rounded-full text-xs font-bold">
             {currentQ.sessionTitle}
           </span>
-          <h2 className="text-lg sm:text-xl font-bold text-white leading-relaxed mt-3">
+          <h2 className="text-lg sm:text-xl font-display font-bold text-ink leading-relaxed mt-3">
             {currentQ.question}
           </h2>
         </div>
@@ -183,15 +183,15 @@ export const SoloView: React.FC = () => {
             const isSelected = selectedOption === idx;
             const isCorrect = idx === currentQ.correctAnswer;
 
-            let btnStyle = 'bg-slate-950 border-slate-800 text-slate-200 hover:border-slate-700';
+            let btnStyle = 'bg-cream border-ink/10 text-ink hover:border-sky/40';
 
             if (isAnswered) {
               if (isCorrect) {
-                btnStyle = 'bg-emerald-950/80 border-emerald-500 text-emerald-100 font-bold';
+                btnStyle = 'bg-grass/10 border-grass text-grass-dark font-bold';
               } else if (isSelected) {
-                btnStyle = 'bg-red-950/80 border-red-500 text-red-100 font-bold';
+                btnStyle = 'bg-coral/10 border-coral text-coral-dark font-bold';
               } else {
-                btnStyle = 'bg-slate-950/40 border-slate-800 text-slate-500 opacity-50';
+                btnStyle = 'bg-cream border-ink/10 text-ink-soft/50 opacity-60';
               }
             }
 
@@ -200,11 +200,11 @@ export const SoloView: React.FC = () => {
                 key={idx}
                 disabled={isAnswered}
                 onClick={() => handleSelectOption(idx)}
-                className={`w-full p-4 rounded-xl border text-left text-sm font-medium transition-all flex items-start justify-between gap-3 ${btnStyle}`}
+                className={`w-full p-4 rounded-2xl border-2 text-left text-sm font-semibold transition-all flex items-start justify-between gap-3 ${btnStyle}`}
               >
                 <span>{opt}</span>
-                {isAnswered && isCorrect && <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />}
-                {isAnswered && isSelected && !isCorrect && <XCircle className="w-5 h-5 text-red-400 shrink-0" />}
+                {isAnswered && isCorrect && <CheckCircle2 className="w-5 h-5 text-grass-dark shrink-0" />}
+                {isAnswered && isSelected && !isCorrect && <XCircle className="w-5 h-5 text-coral-dark shrink-0" />}
               </button>
             );
           })}
@@ -212,12 +212,12 @@ export const SoloView: React.FC = () => {
 
         {/* Explanation Card */}
         {selectedOption !== null && (
-          <div className="p-5 bg-blue-950/40 border border-blue-500/40 rounded-2xl space-y-2 animate-fade-in">
-            <div className="flex items-center gap-2 text-blue-400 font-bold text-xs uppercase tracking-wider">
+          <div className="p-5 bg-sky/10 border-2 border-sky/30 rounded-2xl space-y-2 animate-pop-in">
+            <div className="flex items-center gap-2 text-sky-dark font-bold text-xs uppercase tracking-wider">
               <Sparkles className="w-4 h-4" />
               <span>Explanation & Key Insight</span>
             </div>
-            <p className="text-xs sm:text-sm text-blue-100/90 leading-relaxed">
+            <p className="text-xs sm:text-sm text-ink leading-relaxed font-medium">
               {currentQ.explanation}
             </p>
           </div>
@@ -228,7 +228,7 @@ export const SoloView: React.FC = () => {
           <div className="flex justify-end">
             <button
               onClick={handleNext}
-              className="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl text-xs flex items-center gap-2 shadow-lg shadow-blue-600/30"
+              className="btn-pop px-6 py-3 bg-sky border-2 border-b-4 border-sky-dark hover:brightness-105 text-white font-bold rounded-2xl text-xs flex items-center gap-2 shadow-md"
             >
               <span>{currentIndex + 1 >= filteredQuestions.length ? 'View Final Results' : 'Next Question'}</span>
               <ArrowRight className="w-4 h-4" />

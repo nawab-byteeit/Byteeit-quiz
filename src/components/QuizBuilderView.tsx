@@ -330,29 +330,30 @@ export const QuizBuilderView: React.FC<QuizBuilderViewProps> = ({ setMode, curre
   };
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-8 space-y-8 animate-fade-in">
+    <div className="max-w-6xl mx-auto px-4 py-8 space-y-8 animate-pop-in">
       {/* Header Banner */}
-      <div className="bg-gradient-to-r from-slate-900 via-blue-950 to-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 text-center sm:text-left flex flex-col sm:flex-row items-center justify-between gap-6 shadow-2xl relative overflow-hidden">
+      <div className="bg-white border-4 border-ink/10 rounded-[2rem] p-6 sm:p-8 text-center sm:text-left flex flex-col sm:flex-row items-center justify-between gap-6 shadow-xl relative overflow-hidden">
+        <div className="absolute -top-16 -right-16 w-64 h-64 bg-grape/10 rounded-full blur-3xl pointer-events-none" />
         <div className="flex items-center gap-4">
           <img
             src={byteeitLogo}
             alt="ByteeIT Logo"
             referrerPolicy="no-referrer"
-            className="h-11 sm:h-14 w-auto max-w-full rounded-2xl object-contain border-2 border-blue-500/50 shadow-xl shadow-blue-500/20 shrink-0"
+            className="h-11 sm:h-14 w-auto max-w-full rounded-2xl object-contain border-4 border-sky/30 shadow-md shrink-0"
           />
           <div>
             <div className="flex items-center gap-2">
-              <span className="px-2.5 py-0.5 bg-blue-500/20 border border-blue-400/30 text-blue-300 text-[11px] font-bold rounded-full uppercase tracking-wider">
+              <span className="px-2.5 py-0.5 bg-grape/15 border-2 border-grape/30 text-grape-dark text-[11px] font-bold rounded-full uppercase tracking-wider">
                 Universal Quiz Studio
               </span>
-              <span className="text-xs text-emerald-400 font-bold flex items-center gap-1">
+              <span className="text-xs text-grass-dark font-bold flex items-center gap-1">
                 <ShieldCheck className="w-3.5 h-3.5" /> ByteeIT Platform
               </span>
             </div>
-            <h2 className="text-2xl sm:text-3xl font-extrabold text-white mt-1">
-              Create & Host Any Quiz
+            <h2 className="text-2xl sm:text-3xl font-display font-extrabold text-ink mt-1">
+              Create & Host Any Quiz 🛠️
             </h2>
-            <p className="text-slate-400 text-xs sm:text-sm mt-1">
+            <p className="text-ink-soft text-xs sm:text-sm mt-1 font-medium">
               Design custom questions, save them to your account, share with teammates by email, and host live games.
             </p>
           </div>
@@ -362,7 +363,7 @@ export const QuizBuilderView: React.FC<QuizBuilderViewProps> = ({ setMode, curre
           {!currentUser && (
             <button
               onClick={() => setShowAuthModal(true)}
-              className="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-2xl text-xs flex items-center gap-2 shadow-lg shadow-blue-600/20"
+              className="btn-pop px-4 py-2.5 bg-sky border-2 border-b-4 border-sky-dark hover:brightness-105 text-white font-bold rounded-2xl text-xs flex items-center gap-2 shadow-md"
             >
               <LogIn className="w-4 h-4" />
               <span>Sign In / Sign Up</span>
@@ -372,7 +373,7 @@ export const QuizBuilderView: React.FC<QuizBuilderViewProps> = ({ setMode, curre
           <button
             onClick={handleLaunchQuiz}
             disabled={isLaunching}
-            className="w-full sm:w-auto px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 disabled:opacity-50 text-white font-extrabold rounded-2xl shadow-xl shadow-emerald-600/25 flex items-center justify-center gap-2 text-sm transition-all shrink-0"
+            className="btn-pop w-full sm:w-auto px-6 py-3 bg-grass border-2 border-b-4 border-grass-dark hover:brightness-105 disabled:opacity-50 text-white font-display font-extrabold rounded-2xl shadow-md flex items-center justify-center gap-2 text-sm shrink-0"
           >
             <Tv className="w-5 h-5" />
             <span>{isLaunching ? 'Launching…' : 'Launch & Host Live Room'}</span>
@@ -385,17 +386,17 @@ export const QuizBuilderView: React.FC<QuizBuilderViewProps> = ({ setMode, curre
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         {/* Left Column: Room & Host Config + Presets */}
         <div className="lg:col-span-5 space-y-6">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-amber-400" />
+          <div className="bg-white border-4 border-ink/10 rounded-[2rem] p-6 shadow-xl space-y-4">
+            <div className="flex items-center justify-between border-b-2 border-ink/10 pb-3">
+              <h3 className="text-sm font-display font-bold text-ink uppercase tracking-wider flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-sunny-dark" />
                 1. Host & Room Configuration
               </h3>
               <div className="flex items-center gap-1.5">
                 {loadedQuizId && currentUser && (
                   <button
                     onClick={openShareModal}
-                    className="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-bold rounded-lg flex items-center gap-1 shadow-sm"
+                    className="btn-pop px-3 py-1 bg-white hover:bg-cream text-ink-soft border-2 border-b-4 border-ink/15 text-xs font-bold rounded-xl flex items-center gap-1 shadow-sm"
                   >
                     <Users2 className="w-3.5 h-3.5" />
                     <span>Share</span>
@@ -404,7 +405,7 @@ export const QuizBuilderView: React.FC<QuizBuilderViewProps> = ({ setMode, curre
                 <button
                   onClick={handleSaveToCloud}
                   disabled={isSavingCloud}
-                  className="px-3 py-1 bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold rounded-lg flex items-center gap-1 shadow-sm disabled:opacity-50"
+                  className="btn-pop px-3 py-1 bg-sky border-2 border-b-4 border-sky-dark hover:brightness-105 text-white text-xs font-bold rounded-xl flex items-center gap-1 shadow-sm disabled:opacity-50"
                 >
                   <Database className="w-3.5 h-3.5" />
                   <span>{isSavingCloud ? 'Saving...' : loadedQuizId ? 'Update Quiz' : 'Save Quiz'}</span>
@@ -414,40 +415,40 @@ export const QuizBuilderView: React.FC<QuizBuilderViewProps> = ({ setMode, curre
 
             <div className="space-y-3">
               <div>
-                <label className="text-xs font-semibold text-slate-400 block mb-1">Quiz Title</label>
+                <label className="text-xs font-bold text-ink-soft block mb-1">Quiz Title</label>
                 <input
                   type="text"
                   value={quizTitle}
                   onChange={(e) => setQuizTitle(e.target.value)}
                   placeholder="e.g. ByteeIT Tech Sprint Trivia 2026"
-                  className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white font-semibold text-sm focus:outline-none focus:border-blue-500"
+                  className="w-full px-3.5 py-2.5 bg-cream border-2 border-ink/10 rounded-2xl text-ink font-bold text-sm focus:outline-none focus:border-sky"
                 />
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-slate-400 block mb-1">Host Name / Brand</label>
+                <label className="text-xs font-bold text-ink-soft block mb-1">Host Name / Brand</label>
                 <input
                   type="text"
                   value={hostName}
                   onChange={(e) => setHostName(e.target.value)}
                   placeholder="e.g. Nawab Khan"
-                  className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-blue-300 font-semibold text-sm focus:outline-none focus:border-blue-500"
+                  className="w-full px-3.5 py-2.5 bg-cream border-2 border-ink/10 rounded-2xl text-sky-dark font-bold text-sm focus:outline-none focus:border-sky"
                 />
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-slate-400 block mb-1">Custom Game PIN / Room Code</label>
+                <label className="text-xs font-bold text-ink-soft block mb-1">Custom Game PIN / Room Code</label>
                 <div className="flex items-center gap-2">
                   <input
                     type="text"
                     value={customRoomPin}
                     onChange={(e) => setCustomRoomPin(e.target.value.toUpperCase())}
                     maxLength={10}
-                    className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-amber-400 font-mono font-bold text-center text-base tracking-widest focus:outline-none focus:border-amber-500"
+                    className="w-full px-3.5 py-2.5 bg-cream border-2 border-ink/10 rounded-2xl text-sunny-dark font-display font-extrabold text-center text-base tracking-widest focus:outline-none focus:border-sunny"
                   />
                   <button
                     onClick={handleGeneratePin}
-                    className="px-3 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-xl border border-slate-700 shrink-0"
+                    className="btn-pop px-3 py-2.5 bg-white hover:bg-cream text-ink-soft text-xs font-bold rounded-2xl border-2 border-b-4 border-ink/15 shrink-0"
                   >
                     Random PIN
                   </button>
@@ -457,58 +458,58 @@ export const QuizBuilderView: React.FC<QuizBuilderViewProps> = ({ setMode, curre
           </div>
 
           {/* Preset Quiz Selector & Cloud Quizzes */}
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
-                <Layers className="w-4 h-4 text-blue-400" />
+          <div className="bg-white border-4 border-ink/10 rounded-[2rem] p-6 shadow-xl space-y-4">
+            <div className="flex items-center justify-between border-b-2 border-ink/10 pb-3">
+              <h3 className="text-sm font-display font-bold text-ink uppercase tracking-wider flex items-center gap-2">
+                <Layers className="w-4 h-4 text-sky-dark" />
                 2. Choose a Quiz
               </h3>
               <button
                 onClick={() => setShowJsonModal(true)}
-                className="text-xs text-blue-400 font-semibold hover:underline flex items-center gap-1"
+                className="text-xs text-sky-dark font-bold hover:underline flex items-center gap-1"
               >
                 <Upload className="w-3.5 h-3.5" /> Import
               </button>
             </div>
 
             {currentUser && (
-              <div className="space-y-2 border-b border-slate-800 pb-4">
+              <div className="space-y-2 border-b-2 border-ink/10 pb-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-emerald-400 flex items-center gap-1">
+                  <span className="text-xs font-bold text-grass-dark flex items-center gap-1">
                     <Cloud className="w-3.5 h-3.5" /> My Quizzes ({myQuizzes.owned.length})
                   </span>
                   <button
                     onClick={loadCloudQuizzes}
-                    className="text-[11px] text-slate-400 hover:text-white flex items-center gap-1"
+                    className="text-[11px] text-ink-soft hover:text-ink flex items-center gap-1 font-semibold"
                   >
                     <RefreshCw className={`w-3 h-3 ${isLoadingCloud ? 'animate-spin' : ''}`} /> Refresh
                   </button>
                 </div>
 
                 {myQuizzes.owned.length === 0 ? (
-                  <p className="text-xs text-slate-500 italic">No saved quizzes yet. Click "Save Quiz" above to store one!</p>
+                  <p className="text-xs text-ink-soft/70 italic">No saved quizzes yet. Click "Save Quiz" above to store one!</p>
                 ) : (
                   <div className="space-y-2 max-h-48 overflow-y-auto">
                     {myQuizzes.owned.map((cq) => (
                       <div
                         key={cq.id}
-                        className={`p-3 rounded-xl border flex items-center justify-between gap-2 transition-all ${
+                        className={`p-3 rounded-2xl border-2 flex items-center justify-between gap-2 transition-all ${
                           loadedQuizId === cq.id
-                            ? 'bg-emerald-950/60 border-emerald-500 text-white'
-                            : 'bg-slate-950/60 border-slate-800 text-slate-300'
+                            ? 'bg-grass/10 border-grass text-ink'
+                            : 'bg-cream border-ink/10 text-ink-soft'
                         }`}
                       >
                         <button onClick={() => handleSelectCloudQuiz(cq)} className="text-left min-w-0 flex-1">
-                          <div className="flex items-center gap-1.5 text-[10px] text-emerald-400 font-mono font-bold">
+                          <div className="flex items-center gap-1.5 text-[10px] text-grass-dark font-bold">
                             <span>{cq.category}</span>
                             <span>•</span>
                             <span>{cq.questions.length} Qs</span>
                           </div>
-                          <h4 className="font-bold text-xs text-white truncate">{cq.title}</h4>
+                          <h4 className="font-bold text-xs text-ink truncate">{cq.title}</h4>
                         </button>
                         <button
                           onClick={() => handleDeleteCloudQuiz(cq.id)}
-                          className="p-1 hover:bg-red-950 rounded text-slate-400 hover:text-red-400"
+                          className="p-1 hover:bg-coral/10 rounded text-ink-soft hover:text-coral-dark"
                           title="Delete Quiz"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -520,7 +521,7 @@ export const QuizBuilderView: React.FC<QuizBuilderViewProps> = ({ setMode, curre
 
                 {myQuizzes.shared.length > 0 && (
                   <div className="space-y-2 pt-2">
-                    <span className="text-xs font-bold text-sky-400 flex items-center gap-1">
+                    <span className="text-xs font-bold text-sky-dark flex items-center gap-1">
                       <Users2 className="w-3.5 h-3.5" /> Shared With Me ({myQuizzes.shared.length})
                     </span>
                     <div className="space-y-2 max-h-48 overflow-y-auto">
@@ -528,19 +529,19 @@ export const QuizBuilderView: React.FC<QuizBuilderViewProps> = ({ setMode, curre
                         <button
                           key={cq.id}
                           onClick={() => handleSelectCloudQuiz(cq)}
-                          className={`w-full p-3 rounded-xl border text-left transition-all ${
+                          className={`w-full p-3 rounded-2xl border-2 text-left transition-all ${
                             loadedQuizId === cq.id
-                              ? 'bg-sky-950/60 border-sky-500 text-white'
-                              : 'bg-slate-950/60 border-slate-800 text-slate-300'
+                              ? 'bg-sky/10 border-sky text-ink'
+                              : 'bg-cream border-ink/10 text-ink-soft'
                           }`}
                         >
-                          <div className="flex items-center gap-1.5 text-[10px] text-sky-400 font-mono font-bold">
+                          <div className="flex items-center gap-1.5 text-[10px] text-sky-dark font-bold">
                             <span>{cq.category}</span>
                             <span>•</span>
                             <span>{cq.questions.length} Qs</span>
                             <span>• Editor access</span>
                           </div>
-                          <h4 className="font-bold text-xs text-white truncate">{cq.title}</h4>
+                          <h4 className="font-bold text-xs text-ink truncate">{cq.title}</h4>
                         </button>
                       ))}
                     </div>
@@ -552,15 +553,15 @@ export const QuizBuilderView: React.FC<QuizBuilderViewProps> = ({ setMode, curre
             {/* Built-in Presets */}
             <div className="space-y-2.5">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-400 block uppercase tracking-wider">Built-In Presets</span>
+                <span className="text-xs font-bold text-ink-soft block uppercase tracking-wider">Built-In Presets</span>
                 {currentUser && (
                   <button
                     onClick={handleSeedPresetsToCloud}
                     disabled={isSavingCloud}
-                    className="px-2.5 py-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1 shadow-sm disabled:opacity-50"
+                    className="px-2.5 py-1 bg-sunny/15 hover:bg-sunny/25 text-sunny-dark border-2 border-sunny/30 rounded-xl text-[11px] font-bold transition-all flex items-center gap-1 shadow-sm disabled:opacity-50"
                     title="Save all preset quizzes into your account"
                   >
-                    <Cloud className="w-3 h-3 text-amber-400" />
+                    <Cloud className="w-3 h-3" />
                     <span>Save All to My Account</span>
                   </button>
                 )}
@@ -571,20 +572,20 @@ export const QuizBuilderView: React.FC<QuizBuilderViewProps> = ({ setMode, curre
                   <button
                     key={preset.id}
                     onClick={() => handleSelectPreset(preset.id)}
-                    className={`w-full p-3 rounded-xl border text-left transition-all ${
+                    className={`w-full p-3 rounded-2xl border-2 text-left transition-all ${
                       isSelected
-                        ? 'bg-blue-950/80 border-blue-500 text-white shadow-md'
-                        : 'bg-slate-950/60 border-slate-800 text-slate-300 hover:bg-slate-800/50'
+                        ? 'bg-sky/10 border-sky text-ink shadow-sm'
+                        : 'bg-cream border-ink/10 text-ink-soft hover:bg-white'
                     }`}
                   >
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-blue-400 uppercase tracking-wider">{preset.category}</span>
-                      <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-400">
+                      <span className="text-xs font-bold text-sky-dark uppercase tracking-wider">{preset.category}</span>
+                      <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-white text-ink-soft border border-ink/10">
                         {preset.questions.length} Questions
                       </span>
                     </div>
-                    <h4 className="font-bold text-sm text-white mt-1">{preset.title}</h4>
-                    <p className="text-xs text-slate-400 line-clamp-1 mt-0.5">{preset.description}</p>
+                    <h4 className="font-bold text-sm text-ink mt-1">{preset.title}</h4>
+                    <p className="text-xs text-ink-soft line-clamp-1 mt-0.5">{preset.description}</p>
                   </button>
                 );
               })}
@@ -594,10 +595,10 @@ export const QuizBuilderView: React.FC<QuizBuilderViewProps> = ({ setMode, curre
 
         {/* Right Column: Interactive Question Editor & List */}
         <div className="lg:col-span-7 space-y-6">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-5">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
-                <Edit3 className="w-4 h-4 text-emerald-400" />
+          <div className="bg-white border-4 border-ink/10 rounded-[2rem] p-6 shadow-xl space-y-5">
+            <div className="flex items-center justify-between border-b-2 border-ink/10 pb-3">
+              <h3 className="text-sm font-display font-bold text-ink uppercase tracking-wider flex items-center gap-2">
+                <Edit3 className="w-4 h-4 text-grass-dark" />
                 {editingQuestionIdx !== null ? `Edit Question #${editingQuestionIdx + 1}` : 'Add New Question'}
               </h3>
               {editingQuestionIdx !== null && (
@@ -607,7 +608,7 @@ export const QuizBuilderView: React.FC<QuizBuilderViewProps> = ({ setMode, curre
                     setQText('');
                     setQOptions(['', '', '', '']);
                   }}
-                  className="text-xs text-slate-400 hover:text-white"
+                  className="text-xs text-ink-soft hover:text-ink font-semibold"
                 >
                   Cancel Edit
                 </button>
@@ -616,24 +617,24 @@ export const QuizBuilderView: React.FC<QuizBuilderViewProps> = ({ setMode, curre
 
             <form onSubmit={handleSaveQuestion} className="space-y-4">
               <div>
-                <label className="text-xs font-semibold text-slate-400 block mb-1">Question Text</label>
+                <label className="text-xs font-bold text-ink-soft block mb-1">Question Text</label>
                 <textarea
                   rows={2}
                   required
                   value={qText}
                   onChange={(e) => setQText(e.target.value)}
                   placeholder="Enter your question text here..."
-                  className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white text-sm focus:outline-none focus:border-emerald-500"
+                  className="w-full px-3.5 py-2.5 bg-cream border-2 border-ink/10 rounded-2xl text-ink text-sm focus:outline-none focus:border-grass font-medium"
                 />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {['A', 'B', 'C', 'D'].map((letter, idx) => {
                   const colors = [
-                    'border-red-500/40 text-red-300',
-                    'border-blue-500/40 text-blue-300',
-                    'border-amber-500/40 text-amber-300',
-                    'border-emerald-500/40 text-emerald-300'
+                    'border-coral/40 text-coral-dark',
+                    'border-sky/40 text-sky-dark',
+                    'border-sunny/40 text-sunny-dark',
+                    'border-grass/40 text-grass-dark'
                   ];
                   return (
                     <div key={letter} className="space-y-1">
@@ -642,10 +643,10 @@ export const QuizBuilderView: React.FC<QuizBuilderViewProps> = ({ setMode, curre
                         <button
                           type="button"
                           onClick={() => setQCorrect(idx)}
-                          className={`text-[10px] font-bold px-2 py-0.5 rounded border transition-colors ${
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border-2 transition-colors ${
                             qCorrect === idx
-                              ? 'bg-emerald-600 border-emerald-400 text-white'
-                              : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-white'
+                              ? 'bg-grass border-grass-dark text-white'
+                              : 'bg-white border-ink/10 text-ink-soft hover:text-ink'
                           }`}
                         >
                           {qCorrect === idx ? '✓ Correct Answer' : 'Mark Correct'}
@@ -661,8 +662,8 @@ export const QuizBuilderView: React.FC<QuizBuilderViewProps> = ({ setMode, curre
                           setQOptions(updated);
                         }}
                         placeholder={`Option ${letter} answer text`}
-                        className={`w-full px-3 py-2 bg-slate-950 border rounded-xl text-xs text-white focus:outline-none ${
-                          qCorrect === idx ? 'border-emerald-500 ring-1 ring-emerald-500/50' : 'border-slate-800'
+                        className={`w-full px-3 py-2 bg-cream border-2 rounded-xl text-xs text-ink focus:outline-none font-medium ${
+                          qCorrect === idx ? 'border-grass ring-1 ring-grass/40' : 'border-ink/10'
                         }`}
                       />
                     </div>
@@ -672,11 +673,11 @@ export const QuizBuilderView: React.FC<QuizBuilderViewProps> = ({ setMode, curre
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-semibold text-slate-400 block mb-1">Time Limit (Seconds)</label>
+                  <label className="text-xs font-bold text-ink-soft block mb-1">Time Limit (Seconds)</label>
                   <select
                     value={qTimeLimit}
                     onChange={(e) => setQTimeLimit(Number(e.target.value))}
-                    className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white font-mono focus:outline-none"
+                    className="w-full px-3 py-2 bg-cream border-2 border-ink/10 rounded-xl text-xs text-ink font-bold focus:outline-none"
                   >
                     <option value={10}>10 Seconds (Fast)</option>
                     <option value={20}>20 Seconds</option>
@@ -687,20 +688,20 @@ export const QuizBuilderView: React.FC<QuizBuilderViewProps> = ({ setMode, curre
                 </div>
 
                 <div>
-                  <label className="text-xs font-semibold text-slate-400 block mb-1">Explanation (Shown after answer)</label>
+                  <label className="text-xs font-bold text-ink-soft block mb-1">Explanation (Shown after answer)</label>
                   <input
                     type="text"
                     value={qExplanation}
                     onChange={(e) => setQExplanation(e.target.value)}
                     placeholder="Brief explanation for correct choice..."
-                    className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-300 focus:outline-none"
+                    className="w-full px-3 py-2 bg-cream border-2 border-ink/10 rounded-xl text-xs text-ink-soft focus:outline-none font-medium"
                   />
                 </div>
               </div>
 
               <button
                 type="submit"
-                className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors"
+                className="btn-pop w-full py-2.5 bg-grass border-2 border-b-4 border-grass-dark hover:brightness-105 text-white font-bold rounded-2xl text-xs flex items-center justify-center gap-1.5"
               >
                 <Plus className="w-4 h-4" />
                 <span>{editingQuestionIdx !== null ? 'Update Question' : 'Add Question to Quiz'}</span>
@@ -708,13 +709,13 @@ export const QuizBuilderView: React.FC<QuizBuilderViewProps> = ({ setMode, curre
             </form>
           </div>
 
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
-                <CheckCircle className="w-4 h-4 text-blue-400" />
+          <div className="bg-white border-4 border-ink/10 rounded-[2rem] p-6 shadow-xl space-y-4">
+            <div className="flex items-center justify-between border-b-2 border-ink/10 pb-3">
+              <h3 className="text-sm font-display font-bold text-ink uppercase tracking-wider flex items-center gap-2">
+                <CheckCircle className="w-4 h-4 text-sky-dark" />
                 Quiz Questions List ({questions.length})
               </h3>
-              <span className="text-xs text-slate-400 font-mono">
+              <span className="text-xs text-ink-soft font-bold">
                 Total Time: ~{questions.reduce((acc, q) => acc + (q.timeLimit || 30), 0)}s
               </span>
             </div>
@@ -723,17 +724,17 @@ export const QuizBuilderView: React.FC<QuizBuilderViewProps> = ({ setMode, curre
               {questions.map((q, idx) => (
                 <div
                   key={q.id || idx}
-                  className="bg-slate-950 border border-slate-800 rounded-xl p-3.5 flex items-start justify-between gap-3 hover:border-slate-700 transition-colors"
+                  className="bg-cream border-2 border-ink/10 rounded-2xl p-3.5 flex items-start justify-between gap-3 hover:border-sky/30 transition-colors"
                 >
                   <div className="space-y-1">
                     <div className="flex items-center gap-2 text-xs font-bold">
-                      <span className="px-2 py-0.5 rounded bg-blue-600/20 text-blue-300 border border-blue-500/30 font-mono">
+                      <span className="px-2 py-0.5 rounded-lg bg-sky/15 text-sky-dark border border-sky/30 font-bold">
                         Q{idx + 1}
                       </span>
-                      <span className="text-slate-400 font-mono">{q.timeLimit || 30}s</span>
+                      <span className="text-ink-soft font-semibold">{q.timeLimit || 30}s</span>
                     </div>
-                    <p className="text-xs font-semibold text-white leading-snug">{q.question}</p>
-                    <p className="text-[11px] text-emerald-400 font-medium">
+                    <p className="text-xs font-bold text-ink leading-snug">{q.question}</p>
+                    <p className="text-[11px] text-grass-dark font-semibold">
                       Correct Answer: {q.correctAnswerText || q.options[q.correctAnswer]}
                     </p>
                   </div>
@@ -741,14 +742,14 @@ export const QuizBuilderView: React.FC<QuizBuilderViewProps> = ({ setMode, curre
                   <div className="flex items-center gap-1 shrink-0">
                     <button
                       onClick={() => handleEditClick(idx)}
-                      className="p-1.5 hover:bg-slate-800 rounded text-slate-400 hover:text-white"
+                      className="p-1.5 hover:bg-white rounded-lg text-ink-soft hover:text-ink"
                       title="Edit Question"
                     >
                       <Edit3 className="w-3.5 h-3.5" />
                     </button>
                     <button
                       onClick={() => handleDeleteClick(idx)}
-                      className="p-1.5 hover:bg-red-950 rounded text-slate-400 hover:text-red-400"
+                      className="p-1.5 hover:bg-coral/10 rounded-lg text-ink-soft hover:text-coral-dark"
                       title="Delete Question"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
@@ -765,66 +766,66 @@ export const QuizBuilderView: React.FC<QuizBuilderViewProps> = ({ setMode, curre
 
       {/* Share Quiz Modal */}
       {showShareModal && createPortal(
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm overflow-y-auto p-4">
+        <div className="fixed inset-0 z-50 bg-ink/40 backdrop-blur-sm overflow-y-auto p-4">
           <div className="min-h-full flex items-center justify-center">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 my-8">
+          <div className="bg-paper border-4 border-ink/10 rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4 my-8">
             <div className="flex items-center justify-between">
-              <h3 className="text-base font-bold text-white flex items-center gap-2">
-                <Users2 className="w-4 h-4 text-sky-400" />
+              <h3 className="text-base font-display font-bold text-ink flex items-center gap-2">
+                <Users2 className="w-4 h-4 text-sky-dark" />
                 Share "{quizTitle}"
               </h3>
-              <button onClick={() => setShowShareModal(false)} className="text-slate-400 hover:text-white p-1">
+              <button onClick={() => setShowShareModal(false)} className="text-ink-soft hover:text-coral-dark p-1">
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-ink-soft font-medium">
               Anyone you invite by email gets full editor access -- they can view, edit, and host this quiz once they sign in with that email.
             </p>
 
             {shareError && (
-              <div className="p-2.5 bg-red-950/80 border border-red-800 text-red-300 rounded-lg text-xs font-medium">
+              <div className="p-2.5 bg-coral/10 border-2 border-coral/30 text-coral-dark rounded-xl text-xs font-bold">
                 {shareError}
               </div>
             )}
 
             <form onSubmit={handleShare} className="flex items-center gap-2">
               <div className="relative flex-1">
-                <Mail className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
+                <Mail className="w-4 h-4 text-ink-soft/60 absolute left-3 top-2.5" />
                 <input
                   type="email"
                   required
                   value={shareEmail}
                   onChange={(e) => setShareEmail(e.target.value)}
                   placeholder="teammate@example.com"
-                  className="w-full pl-9 pr-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs focus:outline-none focus:border-sky-500"
+                  className="w-full pl-9 pr-3 py-2 bg-cream border-2 border-ink/10 rounded-2xl text-ink text-xs focus:outline-none focus:border-sky font-medium"
                 />
               </div>
               <button
                 type="submit"
                 disabled={isSharing}
-                className="px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold rounded-xl disabled:opacity-50 shrink-0"
+                className="btn-pop px-4 py-2 bg-sky border-2 border-b-4 border-sky-dark hover:brightness-105 text-white text-xs font-bold rounded-2xl disabled:opacity-50 shrink-0"
               >
                 {isSharing ? 'Sharing…' : 'Invite'}
               </button>
             </form>
 
             <div className="space-y-2">
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+              <span className="text-xs font-bold text-ink-soft uppercase tracking-wider">
                 People with access ({collaborators.length})
               </span>
               {collaborators.length === 0 ? (
-                <p className="text-xs text-slate-500 italic">Not shared with anyone yet.</p>
+                <p className="text-xs text-ink-soft/70 italic">Not shared with anyone yet.</p>
               ) : (
                 <div className="space-y-1.5 max-h-48 overflow-y-auto">
                   {collaborators.map((c) => (
                     <div
                       key={c.id}
-                      className="flex items-center justify-between bg-slate-950 border border-slate-800 rounded-lg px-3 py-2"
+                      className="flex items-center justify-between bg-cream border-2 border-ink/10 rounded-xl px-3 py-2"
                     >
-                      <span className="text-xs text-slate-200 truncate">{c.invitedEmail}</span>
+                      <span className="text-xs text-ink truncate font-medium">{c.invitedEmail}</span>
                       <button
                         onClick={() => handleRemoveCollaborator(c.id)}
-                        className="text-[11px] text-red-400 hover:text-red-300 font-bold shrink-0 ml-2"
+                        className="text-[11px] text-coral-dark hover:text-coral font-bold shrink-0 ml-2"
                       >
                         Remove
                       </button>
@@ -837,7 +838,7 @@ export const QuizBuilderView: React.FC<QuizBuilderViewProps> = ({ setMode, curre
             <div className="pt-2 flex justify-end">
               <button
                 onClick={() => setShowShareModal(false)}
-                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl"
+                className="btn-pop px-4 py-2 bg-cream-deep border-2 border-b-4 border-ink/15 hover:bg-cream text-ink text-xs font-bold rounded-2xl"
               >
                 Done
               </button>
@@ -850,11 +851,11 @@ export const QuizBuilderView: React.FC<QuizBuilderViewProps> = ({ setMode, curre
 
       {/* JSON Import Modal */}
       {showJsonModal && createPortal(
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm overflow-y-auto p-4">
+        <div className="fixed inset-0 z-50 bg-ink/40 backdrop-blur-sm overflow-y-auto p-4">
           <div className="min-h-full flex items-center justify-center">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 my-8">
-            <h3 className="text-base font-bold text-white">Import Custom Questions via JSON</h3>
-            <p className="text-xs text-slate-400">
+          <div className="bg-paper border-4 border-ink/10 rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4 my-8">
+            <h3 className="text-base font-display font-bold text-ink">Import Custom Questions via JSON</h3>
+            <p className="text-xs text-ink-soft font-medium">
               Paste an array of question objects containing `question`, `options`, `correctAnswer`, `timeLimit`, and `explanation`.
             </p>
             <textarea
@@ -862,18 +863,18 @@ export const QuizBuilderView: React.FC<QuizBuilderViewProps> = ({ setMode, curre
               value={jsonInput}
               onChange={(e) => setJsonInput(e.target.value)}
               placeholder={`[\n  {\n    "question": "What is GCP Cloud Run?",\n    "options": ["A) Serverless containers", "B) Physical server", "C) SQL DB", "D) DNS"],\n    "correctAnswer": 0,\n    "timeLimit": 30\n  }\n]`}
-              className="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl text-xs text-emerald-300 font-mono focus:outline-none"
+              className="w-full p-3 bg-cream border-2 border-ink/10 rounded-2xl text-xs text-grass-dark font-mono focus:outline-none"
             />
             <div className="flex items-center justify-end gap-2">
               <button
                 onClick={() => setShowJsonModal(false)}
-                className="px-4 py-2 bg-slate-800 text-slate-300 text-xs font-bold rounded-xl"
+                className="btn-pop px-4 py-2 bg-cream-deep border-2 border-b-4 border-ink/15 text-ink text-xs font-bold rounded-2xl"
               >
                 Cancel
               </button>
               <button
                 onClick={handleImportJson}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-xl"
+                className="btn-pop px-4 py-2 bg-sky border-2 border-b-4 border-sky-dark hover:brightness-105 text-white text-xs font-bold rounded-2xl"
               >
                 Import Questions
               </button>

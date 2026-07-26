@@ -1,1 +1,90 @@
 @import "tailwindcss";
+
+@theme {
+  --color-cream: #fff7e9;
+  --color-cream-deep: #ffefd1;
+  --color-paper: #fffdf8;
+  --color-ink: #2b2861;
+  --color-ink-soft: #4b4890;
+
+  --color-sunny: #ffc93c;
+  --color-sunny-dark: #e8a800;
+  --color-sky: #2fb8f0;
+  --color-sky-dark: #1189c4;
+  --color-coral: #ff5d6c;
+  --color-coral-dark: #e23a4b;
+  --color-grass: #2fbe72;
+  --color-grass-dark: #1e9b57;
+  --color-grape: #9b6bff;
+  --color-grape-dark: #7a45e0;
+
+  --font-display: "Baloo 2", ui-rounded, "Segoe UI", sans-serif;
+  --font-body: "Nunito", ui-sans-serif, system-ui, sans-serif;
+}
+
+@layer base {
+  body {
+    font-family: var(--font-body);
+    background-color: var(--color-cream);
+    color: var(--color-ink);
+  }
+
+  h1, h2, h3, h4 {
+    font-family: var(--font-display);
+  }
+}
+
+@layer utilities {
+  .font-display {
+    font-family: var(--font-display);
+  }
+
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Chunky "game button" press effect: pair with border-b-4 + a *-dark border color */
+  .btn-pop {
+    transition: transform 0.08s ease, box-shadow 0.08s ease, border-bottom-width 0.08s ease;
+  }
+  .btn-pop:active:not(:disabled) {
+    transform: translateY(3px);
+    border-bottom-width: 2px !important;
+  }
+  .btn-pop:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+
+  .confetti-bg {
+    background-image:
+      radial-gradient(circle, var(--color-sky) 3px, transparent 3px),
+      radial-gradient(circle, var(--color-coral) 3px, transparent 3px),
+      radial-gradient(circle, var(--color-sunny) 3px, transparent 3px),
+      radial-gradient(circle, var(--color-grass) 3px, transparent 3px);
+    background-size: 120px 120px, 140px 140px, 160px 160px, 130px 130px;
+    background-position: 0 0, 40px 60px, 80px 20px, 20px 90px;
+    background-repeat: repeat;
+    opacity: 0.12;
+  }
+}
+
+@keyframes pop-in {
+  0% { opacity: 0; transform: scale(0.85) translateY(8px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+.animate-pop-in {
+  animation: pop-in 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes wiggle {
+  0%, 100% { transform: rotate(-1.5deg); }
+  50% { transform: rotate(1.5deg); }
+}
+.animate-wiggle {
+  animation: wiggle 1.6s ease-in-out infinite;
+}

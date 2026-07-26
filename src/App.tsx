@@ -35,7 +35,15 @@ export default function App() {
   const quizTitle = hostedRoom ? undefined : 'ByteeIT Quiz Studio';
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans antialiased selection:bg-blue-600 selection:text-white flex flex-col">
+    <div className="min-h-screen bg-cream text-ink font-body antialiased selection:bg-sky selection:text-white flex flex-col relative overflow-x-hidden">
+      {/* Decorative background: soft color blobs + confetti dots, fixed behind everything */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden -z-10">
+        <div className="absolute -top-32 -left-24 w-96 h-96 bg-sky/20 rounded-full blur-3xl" />
+        <div className="absolute top-1/3 -right-32 w-[28rem] h-[28rem] bg-grape/15 rounded-full blur-3xl" />
+        <div className="absolute -bottom-40 left-1/4 w-96 h-96 bg-sunny/25 rounded-full blur-3xl" />
+        <div className="absolute inset-0 confetti-bg" />
+      </div>
+
       {/* Top Header Navigation */}
       <Header
         currentMode={currentMode}
@@ -65,16 +73,16 @@ export default function App() {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-slate-900 bg-slate-950 py-4 text-center text-xs text-slate-500">
+      <footer className="border-t-2 border-ink/10 py-4 text-center text-xs text-ink-soft">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
-          <span>ByteeIT Quiz Studio</span>
-          <span className="text-slate-400 font-medium">
+          <span className="font-display font-bold">ByteeIT Quiz Studio 🎉</span>
+          <span className="font-semibold">
             {currentUser ? (
               <>
-                Signed in as <strong className="text-sky-400 font-semibold">{getDisplayName(currentUser)}</strong>
+                Signed in as <strong className="text-sky-dark font-extrabold">{getDisplayName(currentUser)}</strong>
               </>
             ) : (
-              'Real-Time Synchronized Studio'
+              'Real-Time Synchronized Play Studio'
             )}
           </span>
         </div>
