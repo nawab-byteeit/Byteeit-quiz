@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { signInWithEmail, signUpWithEmail, resendConfirmationEmail, type User } from '../lib/supabase';
+import { signInWithEmail, signUpWithEmail, resendConfirmationEmail, getFriendlyAuthError, type User } from '../lib/supabase';
 import { soundEffects } from '../lib/audio';
 import { ShieldCheck, LogIn, Mail, Lock, User as UserIcon, X, RefreshCw } from 'lucide-react';
 
@@ -66,7 +66,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
         }
       }
     } catch (err: any) {
-      setAuthError(err.message || 'Authentication failed');
+      setAuthError(getFriendlyAuthError(err, 'Authentication failed. Please try again.'));
     } finally {
       setIsSubmitting(false);
     }
@@ -84,7 +84,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
       soundEffects.playClick();
       setInfoMessage('Confirmation email resent! Check your inbox (and spam folder) for the new link.');
     } catch (err: any) {
-      setAuthError(err.message || 'Failed to resend confirmation email.');
+      setAuthError(getFriendlyAuthError(err, 'Failed to resend confirmation email.'));
     } finally {
       setIsResending(false);
     }

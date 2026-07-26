@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ViewMode } from '../types';
 import { QRCodeSVG } from 'qrcode.react';
-import { getDisplayName, consumeAuthUrlError, type User } from '../lib/supabase';
+import { getDisplayName, consumeAuthUrlError, getFriendlyAuthError, type User } from '../lib/supabase';
 import { AuthModal } from './AuthModal';
 import { Tv, Smartphone, Target, Download, BookOpen, Volume2, VolumeX, Copy, Check, Users, ShieldCheck, Share2, Globe, PlusCircle, QrCode, UserCheck, LogIn, LogOut } from 'lucide-react';
 import { soundEffects } from '../lib/audio';
@@ -45,7 +45,7 @@ export const Header: React.FC<HeaderProps> = ({
   useEffect(() => {
     const urlError = consumeAuthUrlError();
     if (urlError) {
-      setAuthInitialError(urlError.description);
+      setAuthInitialError(getFriendlyAuthError({ code: urlError.code, message: urlError.description }));
       setShowAuthModal(true);
     }
   }, []);

@@ -137,6 +137,31 @@ export const onAuthChange = (callback: (user: User | null) => void) => {
   return () => subscription.subscription.unsubscribe();
 };
 
+// Supabase's raw auth error codes/messages are accurate but not written for
+// end users (e.g. "email rate limit exceeded" reads like the app is broken).
+// This maps the common ones to plain-language copy with an actual next step.
+const FRIENDLY_AUTH_ERRORS: Record<string, string> = {
+  over_email_send_rate_limit:
+    "We've sent too many emails in a short time and hit our provider's limit. Please wait a few minutes and try again.",
+  over_request_rate_limit: 'Too many attempts in a short time. Please wait a moment and try again.',
+  user_already_exists: 'An account with this email already exists -- try signing in instead.',
+  email_exists: 'An account with this email already exists -- try signing in instead.',
+  invalid_credentials: 'Incorrect email or password. Please double-check and try again.',
+  email_not_confirmed: 'Please confirm your email first -- check your inbox, or tap "Resend confirmation email" below.',
+  weak_password: 'That password is too weak. Try a longer one with a mix of letters and numbers.',
+  email_address_invalid: "That doesn't look like a valid email address.",
+  signup_disabled: 'New sign-ups are currently disabled for this app.',
+  email_provider_disabled: 'Email sign-in is currently disabled for this app.',
+  otp_expired: 'That link is invalid or has expired.'
+};
+
+export const getFriendlyAuthError = (err: unknown, fallback = 'Something went wrong. Please try again.'): string => {
+  const code = (err as { code?: string } | null)?.code;
+  const message = (err as { message?: string } | null)?.message;
+  if (code && FRIENDLY_AUTH_ERRORS[code]) return FRIENDLY_AUTH_ERRORS[code];
+  return message || fallback;
+};
+
 export const getDisplayName = (user: User | null | undefined): string => {
   if (!user) return 'Quiz Host';
   return (
