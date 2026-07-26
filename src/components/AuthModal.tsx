@@ -1,16 +1,18 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { signInWithGoogle, signInWithEmail, signUpWithEmail, type User } from '../lib/supabase';
+import { signInWithEmail, signUpWithEmail, resendConfirmationEmail, type User } from '../lib/supabase';
 import { soundEffects } from '../lib/audio';
-import { ShieldCheck, LogIn, Mail, Lock, User as UserIcon, X } from 'lucide-react';
+import { ShieldCheck, LogIn, Mail, Lock, User as UserIcon, X, RefreshCw } from 'lucide-react';
 
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: (user: User) => void;
+  /** Pre-fills the error banner, e.g. when an expired email-confirmation link sent the user back here. */
+  initialError?: string;
 }
 
-export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess }) => {
+export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess, initialError }) => {
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
   const [authEmail, setAuthEmail] = useState('');
   const [authPass, setAuthPass] = useState('');
@@ -18,24 +20,22 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
   const [authError, setAuthError] = useState('');
   const [infoMessage, setInfoMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isResending, setIsResending] = useState(false);
+
+  // A URL-driven error (expired/used confirmation link) should surface the
+  // moment the modal is opened for it, in login mode where the resend action lives.
+  useEffect(() => {
+    if (isOpen && initialError) {
+      setAuthMode('login');
+      setAuthError(initialError);
+    }
+  }, [isOpen, initialError]);
 
   if (!isOpen) return null;
 
   const resetMessages = () => {
     setAuthError('');
     setInfoMessage('');
-  };
-
-  const handleGoogleAuth = async () => {
-    resetMessages();
-    setIsSubmitting(true);
-    try {
-      await signInWithGoogle();
-      // Supabase redirects the browser for OAuth; nothing else to do here.
-    } catch (err: any) {
-      setAuthError(err.message || 'Google sign-in failed');
-      setIsSubmitting(false);
-    }
   };
 
   const handleEmailAuthSubmit = async (e: React.FormEvent) => {
@@ -58,7 +58,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
         const result = await signUpWithEmail(authEmail, authPass, authName);
         soundEffects.playClick();
         if (result.needsEmailConfirmation) {
-          setInfoMessage('Account created! Check your email to confirm before signing in.');
+          setInfoMessage('Account created! Check your email for a confirmation link before signing in.');
           setAuthMode('login');
         } else if (result.user) {
           if (onSuccess) onSuccess(result.user);
@@ -69,6 +69,24 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
       setAuthError(err.message || 'Authentication failed');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleResendConfirmation = async () => {
+    if (!authEmail.trim()) {
+      setAuthError('Enter your email address above first, then tap resend.');
+      return;
+    }
+    resetMessages();
+    setIsResending(true);
+    try {
+      await resendConfirmationEmail(authEmail);
+      soundEffects.playClick();
+      setInfoMessage('Confirmation email resent! Check your inbox (and spam folder) for the new link.');
+    } catch (err: any) {
+      setAuthError(err.message || 'Failed to resend confirmation email.');
+    } finally {
+      setIsResending(false);
     }
   };
 
@@ -97,8 +115,19 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
         </div>
 
         {authError && (
-          <div className="p-3 bg-coral/10 border-2 border-coral/40 text-coral-dark rounded-2xl text-xs text-center font-bold">
-            {authError}
+          <div className="p-3 bg-coral/10 border-2 border-coral/40 text-coral-dark rounded-2xl text-xs text-center font-bold space-y-2">
+            <p>{authError}</p>
+            {authMode === 'login' && (
+              <button
+                type="button"
+                onClick={handleResendConfirmation}
+                disabled={isResending}
+                className="btn-pop mx-auto px-3 py-1.5 bg-white border-2 border-b-4 border-coral/30 text-coral-dark rounded-xl text-[11px] font-bold flex items-center justify-center gap-1.5 disabled:opacity-50"
+              >
+                <RefreshCw className={`w-3 h-3 ${isResending ? 'animate-spin' : ''}`} />
+                <span>{isResending ? 'Resending…' : 'Resend confirmation email'}</span>
+              </button>
+            )}
           </div>
         )}
 
@@ -107,27 +136,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
             {infoMessage}
           </div>
         )}
-
-        {/* Google Fast Sign-In */}
-        <button
-          onClick={handleGoogleAuth}
-          disabled={isSubmitting}
-          className="btn-pop w-full py-3 bg-white hover:bg-cream text-ink border-2 border-b-4 border-ink/15 font-bold rounded-2xl text-xs flex items-center justify-center gap-2 shadow-sm disabled:opacity-50"
-        >
-          <svg className="w-4 h-4" viewBox="0 0 24 24">
-            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-            <path fill="#FBBC05" d="M5.84 14.1c-.22-.66-.35-1.36-.35-2.1s.13-1.44.35-2.1V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.62z"/>
-            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
-          </svg>
-          <span>Continue with Google</span>
-        </button>
-
-        <div className="flex items-center gap-3 my-2">
-          <div className="h-0.5 bg-ink/10 flex-1 rounded-full" />
-          <span className="text-[11px] text-ink-soft/70 font-bold uppercase">or email</span>
-          <div className="h-0.5 bg-ink/10 flex-1 rounded-full" />
-        </div>
 
         <form onSubmit={handleEmailAuthSubmit} className="space-y-3">
           {authMode === 'register' && (
@@ -184,7 +192,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
             className="btn-pop w-full py-3 bg-sky border-2 border-b-4 border-sky-dark hover:brightness-105 text-white font-bold rounded-2xl text-xs shadow-md disabled:opacity-50 flex items-center justify-center gap-2"
           >
             <LogIn className="w-4 h-4" />
-            <span>{authMode === 'login' ? 'Sign In' : 'Create Account'}</span>
+            <span>{isSubmitting ? (authMode === 'login' ? 'Signing In…' : 'Creating Account…') : authMode === 'login' ? 'Sign In' : 'Create Account'}</span>
           </button>
         </form>
 

@@ -6,7 +6,8 @@
       "Bash(node test_ai_gen.mjs)",
       "Bash(textutil -convert pdf test-content.txt -output test-content.pdf)",
       "Bash(cupsfilter test-content.txt)",
-      "Bash(node test_pdf_upload.mjs)"
+      "Bash(node test_pdf_upload.mjs)",
+      "Bash(node test_auth.mjs)"
     ]
   }
 }

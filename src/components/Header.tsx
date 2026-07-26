@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ViewMode } from '../types';
 import { QRCodeSVG } from 'qrcode.react';
-import { getDisplayName, type User } from '../lib/supabase';
+import { getDisplayName, consumeAuthUrlError, type User } from '../lib/supabase';
 import { AuthModal } from './AuthModal';
 import { Tv, Smartphone, Target, Download, BookOpen, Volume2, VolumeX, Copy, Check, Users, ShieldCheck, Share2, Globe, PlusCircle, QrCode, UserCheck, LogIn, LogOut } from 'lucide-react';
 import { soundEffects } from '../lib/audio';
@@ -36,8 +36,19 @@ export const Header: React.FC<HeaderProps> = ({
   const [copied, setCopied] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authInitialError, setAuthInitialError] = useState('');
   const [copiedShareUrl, setCopiedShareUrl] = useState(false);
   const [copiedDirectUrl, setCopiedDirectUrl] = useState(false);
+
+  // Surface expired/invalid email-confirmation links: Supabase redirects back
+  // with the failure in the URL hash but never shows it anywhere on its own.
+  useEffect(() => {
+    const urlError = consumeAuthUrlError();
+    if (urlError) {
+      setAuthInitialError(urlError.description);
+      setShowAuthModal(true);
+    }
+  }, []);
 
   const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://byteeit-quiz-app.ai.studio';
   const shareableUrl = baseUrl;
@@ -234,7 +245,11 @@ export const Header: React.FC<HeaderProps> = ({
       {/* Creator Auth Modal */}
       <AuthModal
         isOpen={showAuthModal}
-        onClose={() => setShowAuthModal(false)}
+        onClose={() => {
+          setShowAuthModal(false);
+          setAuthInitialError('');
+        }}
+        initialError={authInitialError}
       />
 
       {/* Share Modal Dialog */}
