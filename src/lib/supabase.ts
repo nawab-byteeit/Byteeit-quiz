@@ -51,7 +51,6 @@ export type { User };
 export interface AuthResult {
   user: User | null;
   session: Session | null;
-  needsEmailConfirmation: boolean;
 }
 
 export const signUpWithEmail = async (
@@ -64,21 +63,15 @@ export const signUpWithEmail = async (
     password,
     options: {
       data: { display_name: displayName.trim() || email.split('@')[0] },
-      // Without this, Supabase falls back to the project's dashboard-configured
-      // Site URL, which can silently point at a different host/port than the one
-      // the user is actually signing up from (e.g. localhost vs 127.0.0.1, or a
-      // stale prod URL during local dev). That mismatch makes a *successful*
-      // confirmation look broken, since the session lands in a different
-      // origin's storage than the tab the user is watching.
+      // Only matters if email confirmation is enabled on the Supabase project --
+      // otherwise sign-up returns a session immediately and this is unused. Set
+      // regardless so a confirmation link (if one is ever sent) always redirects
+      // back to wherever the user actually is, not a stale dashboard Site URL.
       emailRedirectTo: window.location.origin
     }
   });
   if (error) throw error;
-  return {
-    user: data.user,
-    session: data.session,
-    needsEmailConfirmation: !!data.user && !data.session
-  };
+  return { user: data.user, session: data.session };
 };
 
 export const signInWithEmail = async (email: string, password: string): Promise<User> => {
@@ -89,17 +82,6 @@ export const signInWithEmail = async (email: string, password: string): Promise<
   if (error) throw error;
   if (!data.user) throw new Error('Sign in failed. Please try again.');
   return data.user;
-};
-
-// Lets a user request a fresh confirmation link when their original one has
-// expired or was already used (the only recovery path for `otp_expired`).
-export const resendConfirmationEmail = async (email: string): Promise<void> => {
-  const { error } = await supabase.auth.resend({
-    type: 'signup',
-    email: email.trim().toLowerCase(),
-    options: { emailRedirectTo: window.location.origin }
-  });
-  if (error) throw error;
 };
 
 export const signOutUser = async (): Promise<void> => {

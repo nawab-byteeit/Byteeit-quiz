@@ -32,6 +32,14 @@ export default function App() {
     return () => unsubAuth();
   }, []);
 
+  // Export Drafts is a creator-only tool, hidden from guests in the nav. If a
+  // user signs out while on it, send them somewhere the nav can still reach.
+  useEffect(() => {
+    if (authLoaded && !currentUser && currentMode === 'export') {
+      setMode('host');
+    }
+  }, [authLoaded, currentUser, currentMode]);
+
   const quizTitle = hostedRoom ? undefined : 'ByteeIT Quiz Studio';
 
   return (

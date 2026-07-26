@@ -87,7 +87,10 @@ export const Header: React.FC<HeaderProps> = ({
     { id: 'builder', label: 'Create Quiz', icon: <PlusCircle className="w-4 h-4" />, active: 'bg-grass border-grass-dark', ring: 'text-grass-dark' },
     { id: 'player', label: 'Player Join', icon: <Smartphone className="w-4 h-4" />, active: 'bg-coral border-coral-dark', ring: 'text-coral-dark' },
     { id: 'solo', label: 'Solo Practice', icon: <Target className="w-4 h-4" />, active: 'bg-grape border-grape-dark', ring: 'text-grape-dark' },
-    { id: 'export', label: 'Export Drafts', icon: <Download className="w-4 h-4" />, active: 'bg-sunny border-sunny-dark', ring: 'text-sunny-dark' },
+    // Export Drafts is a creator tool -- hidden for guests, not just for signed-in users.
+    ...(currentUser
+      ? [{ id: 'export' as ViewMode, label: 'Export Drafts', icon: <Download className="w-4 h-4" />, active: 'bg-sunny border-sunny-dark', ring: 'text-sunny-dark' }]
+      : []),
     { id: 'guide', label: 'Study Guide', icon: <BookOpen className="w-4 h-4" />, active: 'bg-sky border-sky-dark', ring: 'text-sky-dark' }
   ];
 

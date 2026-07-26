@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { signInWithEmail, signUpWithEmail, resendConfirmationEmail, getFriendlyAuthError, type User } from '../lib/supabase';
+import { signInWithEmail, signUpWithEmail, getFriendlyAuthError, type User } from '../lib/supabase';
 import { soundEffects } from '../lib/audio';
-import { ShieldCheck, LogIn, Mail, Lock, User as UserIcon, X, RefreshCw } from 'lucide-react';
+import { ShieldCheck, LogIn, Mail, Lock, User as UserIcon, X } from 'lucide-react';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -20,10 +20,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
   const [authError, setAuthError] = useState('');
   const [infoMessage, setInfoMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isResending, setIsResending] = useState(false);
 
-  // A URL-driven error (expired/used confirmation link) should surface the
-  // moment the modal is opened for it, in login mode where the resend action lives.
+  // A URL-driven error (e.g. a stale confirmation link from before email
+  // verification was turned off) should still surface if one ever shows up.
   useEffect(() => {
     if (isOpen && initialError) {
       setAuthMode('login');
@@ -57,36 +56,21 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
       } else {
         const result = await signUpWithEmail(authEmail, authPass, authName);
         soundEffects.playClick();
-        if (result.needsEmailConfirmation) {
-          setInfoMessage('Account created! Check your email for a confirmation link before signing in.');
-          setAuthMode('login');
-        } else if (result.user) {
+        if (result.session && result.user) {
+          // Normal path: email confirmation is off, so sign-up logs you straight in.
           if (onSuccess) onSuccess(result.user);
           onClose();
+        } else {
+          // Email confirmation is still enabled on the Supabase project -- until
+          // that's turned off in the dashboard, Supabase won't issue a session yet.
+          setInfoMessage('Account created! Check your email for a confirmation link before signing in.');
+          setAuthMode('login');
         }
       }
     } catch (err: any) {
       setAuthError(getFriendlyAuthError(err, 'Authentication failed. Please try again.'));
     } finally {
       setIsSubmitting(false);
-    }
-  };
-
-  const handleResendConfirmation = async () => {
-    if (!authEmail.trim()) {
-      setAuthError('Enter your email address above first, then tap resend.');
-      return;
-    }
-    resetMessages();
-    setIsResending(true);
-    try {
-      await resendConfirmationEmail(authEmail);
-      soundEffects.playClick();
-      setInfoMessage('Confirmation email resent! Check your inbox (and spam folder) for the new link.');
-    } catch (err: any) {
-      setAuthError(getFriendlyAuthError(err, 'Failed to resend confirmation email.'));
-    } finally {
-      setIsResending(false);
     }
   };
 
@@ -115,19 +99,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
         </div>
 
         {authError && (
-          <div className="p-3 bg-coral/10 border-2 border-coral/40 text-coral-dark rounded-2xl text-xs text-center font-bold space-y-2">
-            <p>{authError}</p>
-            {authMode === 'login' && (
-              <button
-                type="button"
-                onClick={handleResendConfirmation}
-                disabled={isResending}
-                className="btn-pop mx-auto px-3 py-1.5 bg-white border-2 border-b-4 border-coral/30 text-coral-dark rounded-xl text-[11px] font-bold flex items-center justify-center gap-1.5 disabled:opacity-50"
-              >
-                <RefreshCw className={`w-3 h-3 ${isResending ? 'animate-spin' : ''}`} />
-                <span>{isResending ? 'Resending…' : 'Resend confirmation email'}</span>
-              </button>
-            )}
+          <div className="p-3 bg-coral/10 border-2 border-coral/40 text-coral-dark rounded-2xl text-xs text-center font-bold">
+            {authError}
           </div>
         )}
 
